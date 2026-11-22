@@ -320,11 +320,10 @@ export const DIFF_SURFACE_THEME_UNSAFE_CSS = `
   );
   --diffs-bg-buffer-override: color-mix(in srgb, var(--code-background) 90%, var(--code-foreground));
 
-  /* --diff-addition-background lets a palette pick the row tint itself. */
-  --diffs-bg-addition-override: var(--diff-addition-background, light-dark(
+  --diffs-bg-addition-override: light-dark(
     color-mix(in srgb, var(--code-background) calc(50% - var(--appearance-contrast-boost, 0%) / 4), var(--diff-addition)),
     color-mix(in srgb, var(--code-background) calc(70% - var(--appearance-contrast-boost, 0%) / 4), var(--diff-addition))
-  ));
+  );
   --diffs-bg-addition-number-override: light-dark(
     color-mix(in srgb, var(--code-background) calc(35% - var(--appearance-contrast-boost, 0%) / 4), var(--diff-addition)),
     color-mix(in srgb, var(--code-background) calc(60% - var(--appearance-contrast-boost, 0%) / 4), var(--diff-addition))
@@ -337,11 +336,10 @@ export const DIFF_SURFACE_THEME_UNSAFE_CSS = `
     rgb(from var(--diffs-addition-base) r g b / calc(20% + var(--appearance-contrast-boost, 0%) / 4))
   );
 
-  /* --diff-deletion-background lets a palette pick the row tint itself. */
-  --diffs-bg-deletion-override: var(--diff-deletion-background, light-dark(
+  --diffs-bg-deletion-override: light-dark(
     color-mix(in srgb, var(--code-background) calc(50% - var(--appearance-contrast-boost, 0%) / 4), var(--diff-deletion)),
     color-mix(in srgb, var(--code-background) calc(70% - var(--appearance-contrast-boost, 0%) / 4), var(--diff-deletion))
-  ));
+  );
   --diffs-bg-deletion-number-override: light-dark(
     color-mix(in srgb, var(--code-background) calc(35% - var(--appearance-contrast-boost, 0%) / 4), var(--diff-deletion)),
     color-mix(in srgb, var(--code-background) calc(60% - var(--appearance-contrast-boost, 0%) / 4), var(--diff-deletion))
@@ -358,6 +356,28 @@ export const DIFF_SURFACE_THEME_UNSAFE_CSS = `
 
   background-color: var(--diffs-bg) !important;
   color: var(--code-foreground) !important;
+}
+
+/* A palette can set the exact row tint with --diff-addition-background or
+   --diff-deletion-background; otherwise this is Pierre's own mix. */
+[data-background] :is([data-line], [data-no-newline])[data-line-type="change-addition"] {
+  --diffs-computed-diff-line-bg: var(
+    --diff-addition-background,
+    light-dark(
+      color-mix(in lab, var(--diffs-computed-decoration-bg) var(--mix-light), var(--diffs-diff-line-mix-target)),
+      color-mix(in lab, var(--diffs-computed-decoration-bg) var(--mix-dark), var(--diffs-diff-line-mix-target))
+    )
+  );
+}
+
+[data-background] :is([data-line], [data-no-newline])[data-line-type="change-deletion"] {
+  --diffs-computed-diff-line-bg: var(
+    --diff-deletion-background,
+    light-dark(
+      color-mix(in lab, var(--diffs-computed-decoration-bg) var(--mix-light), var(--diffs-diff-line-mix-target)),
+      color-mix(in lab, var(--diffs-computed-decoration-bg) var(--mix-dark), var(--diffs-diff-line-mix-target))
+    )
+  );
 }
 
 /* The library's change-icon colors are tuned for dark canvases; light mode takes the app's darker tokens. */

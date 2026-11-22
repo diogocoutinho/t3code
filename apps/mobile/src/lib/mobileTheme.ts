@@ -40,6 +40,31 @@ function normalizeMobileThemeId(value: unknown, fallback: MobileThemeId): Mobile
     : fallback;
 }
 
+/**
+ * Standalone builds move stock T3 Code choices to EasyDev once, then record it so a later pick of
+ * the stock theme stays. Null means nothing to write.
+ */
+export function easydevThemeMigrationPatch(preferences: {
+  readonly themeId?: MobileThemeId;
+  readonly lightThemeId?: MobileThemeId;
+  readonly darkThemeId?: MobileThemeId;
+  readonly easydevThemeMigrated?: boolean;
+}): {
+  themeId?: MobileThemeId;
+  lightThemeId?: MobileThemeId;
+  darkThemeId?: MobileThemeId;
+  easydevThemeMigrated: true;
+} | null {
+  if (preferences.easydevThemeMigrated === true) return null;
+  const patch: ReturnType<typeof easydevThemeMigrationPatch> & object = {
+    easydevThemeMigrated: true,
+  };
+  for (const key of ["themeId", "lightThemeId", "darkThemeId"] as const) {
+    if (preferences[key] === DEFAULT_MOBILE_THEME_ID) patch[key] = "easydev";
+  }
+  return patch;
+}
+
 export function normalizeMobileThemeMode(value: unknown): MobileThemeMode {
   return value === "light" || value === "dark" || value === "system" ? value : "system";
 }
