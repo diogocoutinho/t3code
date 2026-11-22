@@ -1220,6 +1220,11 @@ describe("deriveMessagesTimelineRows", () => {
     expect(foldRow?.runId).toBe("turn-1");
     expect(foldRow?.expanded).toBe(false);
     expect(foldRow?.label).toBe("Worked for 22s");
+    const { read, edit, command, codeSearch, webSearch, other } = foldRow?.activity ?? {};
+    expect([read, edit, command, codeSearch, webSearch, other].reduce((a, b) => a! + b!, 0)).toBe(
+      1,
+    );
+    expect(foldRow?.diffStat).toBeUndefined();
     expect(collapsedRows.map((row) => row.id)).toEqual([
       "user-entry",
       "turn-fold:turn-1",
