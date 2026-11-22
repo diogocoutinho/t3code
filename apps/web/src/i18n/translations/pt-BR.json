@@ -12440,5 +12440,13 @@
   "27d76249d09eb69f": "Guia de revisão pronto",
   "faa3bb26abb39c93": "O guia de revisão falhou",
   "b7df38b7d8792d78": "Abrir guia",
-  "9e91e9a77b664e4e": "Não foi possível iniciar um guia de revisão"
+  "9e91e9a77b664e4e": "Não foi possível iniciar um guia de revisão",
+  "255258972e509f59": "Projetos",
+  "517e0bee75df8668": "Threads",
+  "20d33c43279faf49": "Configurações de conexão de {environment}",
+  "b64fd088ae5d36a8": "aprovar",
+  "eab89b6a71e45fd0": "pergunta",
+  "1936621f31bb076f": "convidado",
+  "f94915170c4ccaad": "Precisa de você · {count}",
+  "67830a5b792776c2": "{title}, {reason}"
 }

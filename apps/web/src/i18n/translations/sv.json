@@ -12448,5 +12448,13 @@
   "27d76249d09eb69f": "Granskningsguiden är klar",
   "faa3bb26abb39c93": "Granskningsguiden misslyckades",
   "b7df38b7d8792d78": "Öppna guiden",
-  "9e91e9a77b664e4e": "Kunde inte starta en granskningsguide"
+  "9e91e9a77b664e4e": "Kunde inte starta en granskningsguide",
+  "255258972e509f59": "Projekt",
+  "517e0bee75df8668": "Trådar",
+  "20d33c43279faf49": "Anslutningsinställningar för {environment}",
+  "b64fd088ae5d36a8": "godkänn",
+  "eab89b6a71e45fd0": "fråga",
+  "1936621f31bb076f": "gäst",
+  "f94915170c4ccaad": "Behöver dig · {count}",
+  "67830a5b792776c2": "{title}, {reason}"
 }

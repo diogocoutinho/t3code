@@ -12441,5 +12441,13 @@
   "27d76249d09eb69f": "Review-Leitfaden bereit",
   "faa3bb26abb39c93": "Review-Leitfaden fehlgeschlagen",
   "b7df38b7d8792d78": "Leitfaden öffnen",
-  "9e91e9a77b664e4e": "Review-Leitfaden konnte nicht gestartet werden"
+  "9e91e9a77b664e4e": "Review-Leitfaden konnte nicht gestartet werden",
+  "255258972e509f59": "Projekte",
+  "517e0bee75df8668": "Threads",
+  "20d33c43279faf49": "Verbindungseinstellungen für {environment}",
+  "b64fd088ae5d36a8": "freigeben",
+  "eab89b6a71e45fd0": "Frage",
+  "1936621f31bb076f": "Gast",
+  "f94915170c4ccaad": "Braucht dich · {count}",
+  "67830a5b792776c2": "{title}, {reason}"
 }

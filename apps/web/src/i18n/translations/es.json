@@ -12436,5 +12436,13 @@
   "27d76249d09eb69f": "Guía de revisión lista",
   "faa3bb26abb39c93": "Falló la guía de revisión",
   "b7df38b7d8792d78": "Abrir guía",
-  "9e91e9a77b664e4e": "No se pudo iniciar una guía de revisión"
+  "9e91e9a77b664e4e": "No se pudo iniciar una guía de revisión",
+  "255258972e509f59": "Proyectos",
+  "517e0bee75df8668": "Hilos",
+  "20d33c43279faf49": "Ajustes de conexión de {environment}",
+  "b64fd088ae5d36a8": "aprobar",
+  "eab89b6a71e45fd0": "pregunta",
+  "1936621f31bb076f": "invitado",
+  "f94915170c4ccaad": "Te necesita · {count}",
+  "67830a5b792776c2": "{title}, {reason}"
 }

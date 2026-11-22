@@ -12450,5 +12450,13 @@
   "27d76249d09eb69f": "Review guide ready",
   "faa3bb26abb39c93": "Review guide failed",
   "b7df38b7d8792d78": "Open guide",
-  "9e91e9a77b664e4e": "Could not start a review guide"
+  "9e91e9a77b664e4e": "Could not start a review guide",
+  "255258972e509f59": "Projects",
+  "517e0bee75df8668": "Threads",
+  "20d33c43279faf49": "Connection settings for {environment}",
+  "b64fd088ae5d36a8": "approve",
+  "eab89b6a71e45fd0": "question",
+  "1936621f31bb076f": "guest",
+  "f94915170c4ccaad": "Needs you · {count}",
+  "67830a5b792776c2": "{title}, {reason}"
 }
