@@ -21,11 +21,16 @@ html.dark[data-theme-id="easydev"] {
 
 /* The blue-orange diff setting keeps its own colors. */
 html[data-theme-id="easydev"]:not([data-diff-color-scheme="blue-orange"]) {
-  --diffs-bg-addition-override: #e6f4ea;
-  --diffs-bg-deletion-override: #fce9e6;
+  --diff-addition-background: #e6f4ea;
+  --diff-deletion-background: #fce9e6;
 }
 
 html.dark[data-theme-id="easydev"]:not([data-diff-color-scheme="blue-orange"]) {
-  --diffs-bg-addition-override: #1c3324;
-  --diffs-bg-deletion-override: #3a1f1c;
+  --diff-addition-background: #1c3324;
+  --diff-deletion-background: #3a1f1c;
+}
+
+/* Linho's #d4af37 fill is ~2:1 as text on its canvas; gold text takes the darker accent. */
+html:not(.dark)[data-theme-id="easydev"] .text-primary {
+  --primary: var(--app-theme-accent);
 }

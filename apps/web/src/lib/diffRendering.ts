@@ -320,10 +320,11 @@ export const DIFF_SURFACE_THEME_UNSAFE_CSS = `
   );
   --diffs-bg-buffer-override: color-mix(in srgb, var(--code-background) 90%, var(--code-foreground));
 
-  --diffs-bg-addition-override: light-dark(
+  /* --diff-addition-background lets a palette pick the row tint itself. */
+  --diffs-bg-addition-override: var(--diff-addition-background, light-dark(
     color-mix(in srgb, var(--code-background) calc(50% - var(--appearance-contrast-boost, 0%) / 4), var(--diff-addition)),
     color-mix(in srgb, var(--code-background) calc(70% - var(--appearance-contrast-boost, 0%) / 4), var(--diff-addition))
-  );
+  ));
   --diffs-bg-addition-number-override: light-dark(
     color-mix(in srgb, var(--code-background) calc(35% - var(--appearance-contrast-boost, 0%) / 4), var(--diff-addition)),
     color-mix(in srgb, var(--code-background) calc(60% - var(--appearance-contrast-boost, 0%) / 4), var(--diff-addition))
@@ -336,10 +337,11 @@ export const DIFF_SURFACE_THEME_UNSAFE_CSS = `
     rgb(from var(--diffs-addition-base) r g b / calc(20% + var(--appearance-contrast-boost, 0%) / 4))
   );
 
-  --diffs-bg-deletion-override: light-dark(
+  /* --diff-deletion-background lets a palette pick the row tint itself. */
+  --diffs-bg-deletion-override: var(--diff-deletion-background, light-dark(
     color-mix(in srgb, var(--code-background) calc(50% - var(--appearance-contrast-boost, 0%) / 4), var(--diff-deletion)),
     color-mix(in srgb, var(--code-background) calc(70% - var(--appearance-contrast-boost, 0%) / 4), var(--diff-deletion))
-  );
+  ));
   --diffs-bg-deletion-number-override: light-dark(
     color-mix(in srgb, var(--code-background) calc(35% - var(--appearance-contrast-boost, 0%) / 4), var(--diff-deletion)),
     color-mix(in srgb, var(--code-background) calc(60% - var(--appearance-contrast-boost, 0%) / 4), var(--diff-deletion))
