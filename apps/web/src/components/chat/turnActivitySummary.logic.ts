@@ -48,6 +48,7 @@ export function summarizeTurnActivity(
       entry.itemType === "todo_list" ||
       entry.itemType === "approval_request" ||
       entry.itemType === "user_input_request" ||
+      entry.toolLifecycleStatus === "declined" ||
       !workLogEntryIsToolLike(entry)
     ) {
       continue;

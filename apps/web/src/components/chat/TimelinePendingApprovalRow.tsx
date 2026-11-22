@@ -40,7 +40,7 @@ const APPROVAL_PRESENTATION = {
 >;
 
 const APPROVAL_EFFECT = {
-  command: msg("Runs a command on this machine"),
+  command: msg("Runs a command in the workspace"),
   "file-change": msg("Changes files in the workspace"),
   "file-read": msg("Reads a file in the workspace"),
   permission: msg("Changes what the agent may do"),

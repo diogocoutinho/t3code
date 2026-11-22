@@ -355,8 +355,9 @@ export function WorkingTimelineRow({ row }: { row: Extract<TimelineRow, { kind: 
   const m = useMessages();
   const compacting = row.compacting === true || isCompacting;
   const shimmer = isPreparingWorktree || compacting;
-  const activityLabel = row.activeEntry
-    ? liveWorkEntryLabel(row.activeEntry, workspaceRoot, true, m)
+  const activeEntry = row.activeEntry;
+  const activityLabel = activeEntry
+    ? liveWorkEntryLabel(activeEntry, workspaceRoot, true, m)
     : null;
   const label = isPreparingWorktree ? (
     <T>Setting up worktree…</T>
@@ -365,12 +366,8 @@ export function WorkingTimelineRow({ row }: { row: Extract<TimelineRow, { kind: 
   ) : activityLabel ? (
     <span className="inline-flex min-w-0 items-baseline gap-1.5">
       <span className="min-w-0 truncate text-foreground/80">{activityLabel}</span>
-      {row.createdAt ? (
-        <>
-          <span aria-hidden="true">·</span>
-          <WorkingTimer createdAt={row.createdAt} />
-        </>
-      ) : null}
+      <span aria-hidden="true">·</span>
+      {activeEntry ? <WorkingTimer createdAt={activeEntry.createdAt} /> : null}
     </span>
   ) : row.createdAt ? (
     <T>

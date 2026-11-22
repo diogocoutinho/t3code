@@ -40,6 +40,7 @@ describe("summarizeTurnActivity", () => {
       edit(["a.ts"]),
       edit(["a.ts", "b.ts"]),
       command("vitest run"),
+      { ...edit(["declined.ts"]), toolLifecycleStatus: "declined" },
       entry({ itemType: "reasoning", tone: "thinking", label: "Thought" }),
     ]);
     expect(summary).toEqual({

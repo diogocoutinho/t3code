@@ -1225,6 +1225,19 @@ describe("deriveMessagesTimelineRows", () => {
       1,
     );
     expect(foldRow?.diffStat).toBeUndefined();
+    const withCheckpoint = deriveMessagesTimelineRows({
+      timelineEntries,
+      isWorking: false,
+      activeTurnStartedAt: null,
+      turnDiffSummaries: [
+        {
+          runId: "turn-1",
+          files: [{ path: "a.ts", additions: 118, deletions: 31 }],
+        } as never,
+      ],
+      supportsConversationRollback: false,
+    }).find((row) => row.kind === "turn-fold");
+    expect(withCheckpoint).toMatchObject({ diffStat: { additions: 118, deletions: 31 } });
     expect(collapsedRows.map((row) => row.id)).toEqual([
       "user-entry",
       "turn-fold:turn-1",
