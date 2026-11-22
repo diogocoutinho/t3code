@@ -40,7 +40,7 @@ it("shows the titled preview inside and outside search results from a collapsed 
   using _environment = installFakeEnvironment([first, second]);
   __setClientSettingsForTests({
     ...DEFAULT_CLIENT_SETTINGS,
-    boringSidebarEnabled: true,
+    classicSidebarEnabled: false,
     onboardingCompletedAt: "2026-01-01T00:00:00.000Z",
   });
   const router = getRouter(

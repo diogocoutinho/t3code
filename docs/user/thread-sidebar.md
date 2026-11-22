@@ -158,8 +158,8 @@ nothing is waiting.
 ### Group threads by project
 
 On web and desktop, active threads sit in a folder for each project, one line per thread with a
-status dot and how long ago it last changed. Turn off **Settings → Labs → Boring sidebar (group
-by project)** for the flat list. Pinned projects come first. A project with no active
+status dot and how long ago it last changed. Turn on **Settings → Labs → Classic sidebar (flat
+list)** for one list with Active and Settled sections instead. Pinned projects come first. A project with no active
 threads has no folder unless it is pinned or you pick it in the project filter. An archived
 project's folder comes last and shows only while it has active threads. Click a folder to open or
 close it. A closed folder shows how many threads it holds, and a dot when one of them
