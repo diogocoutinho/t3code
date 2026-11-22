@@ -236,6 +236,11 @@ describe("mobile themes", () => {
       light: DEFAULT_MOBILE_THEME_ID,
       dark: "grove",
     });
+    expect(resolveMobileThemeIds({}, "easydev")).toEqual({ light: "easydev", dark: "easydev" });
+    expect(resolveMobileThemeIds({ darkThemeId: "missing" }, "easydev")).toEqual({
+      light: "easydev",
+      dark: "easydev",
+    });
   });
 
   it("changes either theme without switching the active appearance", () => {

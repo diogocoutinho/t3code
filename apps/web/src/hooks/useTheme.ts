@@ -3,8 +3,10 @@ import type { DesktopBridge } from "@t3tools/contracts";
 import { safeErrorLogAttributes } from "@t3tools/client-runtime/errors";
 import * as Schema from "effect/Schema";
 import { useSyncExternalStore } from "react";
+import { IS_STANDALONE_BUILD } from "../projectLinks";
 import {
   applyThemePalette,
+  EASYDEV_THEME,
   CUSTOM_THEMES_STORAGE_KEY,
   invalidateCustomThemes,
   canonicalThemePreference,
@@ -39,9 +41,11 @@ type ThemeSnapshot = {
 type DesktopThemeBridge = Pick<DesktopBridge, "setTheme">;
 
 const STORAGE_KEY = "t3code:theme";
+// index.html's boot script gets the same default from vite.config.ts.
+export const DEFAULT_THEME_PREFERENCE: Theme = IS_STANDALONE_BUILD ? EASYDEV_THEME.id : "system";
 const MEDIA_QUERY = "(prefers-color-scheme: dark)";
 const DEFAULT_THEME_SNAPSHOT: ThemeSnapshot = {
-  theme: "system",
+  theme: DEFAULT_THEME_PREFERENCE,
   resolvedTheme: "light",
   systemDark: false,
   followSystem: true,
@@ -152,7 +156,8 @@ function readStoredFollowSystem(theme: Theme): boolean {
     if (raw === "false") return false;
   } catch {}
 
-  return theme === "system";
+  // The default palette still follows the OS until the user picks a mode.
+  return theme === "system" || theme === DEFAULT_THEME_PREFERENCE;
 }
 
 function isThemePreferenceMode(value: string | null): value is ThemePreferenceMode {

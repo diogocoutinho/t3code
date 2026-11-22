@@ -34,31 +34,35 @@ export const MOBILE_THEME_OPTIONS: ReadonlyArray<{
 export type MobileThemeVariable = keyof ReturnType<typeof createMobileThemeVariables>;
 export type MobileThemeVariables = Readonly<Record<MobileThemeVariable, string>>;
 
-function normalizeMobileThemeId(value: unknown): MobileThemeId {
+function normalizeMobileThemeId(value: unknown, fallback: MobileThemeId): MobileThemeId {
   return typeof value === "string" && (MOBILE_THEME_IDS as readonly string[]).includes(value)
     ? (value as MobileThemeId)
-    : DEFAULT_MOBILE_THEME_ID;
+    : fallback;
 }
 
 export function normalizeMobileThemeMode(value: unknown): MobileThemeMode {
   return value === "light" || value === "dark" || value === "system" ? value : "system";
 }
 
-export function resolveMobileThemeIds(preferences: {
-  readonly themeId?: unknown;
-  readonly lightThemeId?: unknown;
-  readonly darkThemeId?: unknown;
-}): MobileThemeIds {
-  const legacyThemeId = normalizeMobileThemeId(preferences.themeId);
+/** `fallback` is the build's default palette, used where nothing valid is stored. */
+export function resolveMobileThemeIds(
+  preferences: {
+    readonly themeId?: unknown;
+    readonly lightThemeId?: unknown;
+    readonly darkThemeId?: unknown;
+  },
+  fallback: MobileThemeId = DEFAULT_MOBILE_THEME_ID,
+): MobileThemeIds {
+  const legacyThemeId = normalizeMobileThemeId(preferences.themeId, fallback);
   return {
     light:
       preferences.lightThemeId === undefined
         ? legacyThemeId
-        : normalizeMobileThemeId(preferences.lightThemeId),
+        : normalizeMobileThemeId(preferences.lightThemeId, fallback),
     dark:
       preferences.darkThemeId === undefined
         ? legacyThemeId
-        : normalizeMobileThemeId(preferences.darkThemeId),
+        : normalizeMobileThemeId(preferences.darkThemeId, fallback),
   };
 }
 
