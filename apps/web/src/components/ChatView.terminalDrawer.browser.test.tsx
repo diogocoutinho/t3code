@@ -46,8 +46,8 @@ vi.mock(import("~/rpc/requestLatencyState"), async (original) => ({
   trackRpcRequestSent: () => {},
 }));
 
-// Its own file: the launch test needs the first environment of the module, whose thread shell
-// (which resolves the terminal's project) later environments do not refresh.
+// Its own file: run after other ChatView tests in one module, the launch test found no project
+// for the terminal (likely a thread shell later fake environments do not refresh).
 function resetRightPanelDrawer() {
   useRightPanelStore.setState({
     byThreadKey: {},
