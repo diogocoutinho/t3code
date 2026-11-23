@@ -83,7 +83,28 @@ jobs:
           axe --version
 
       - name: Capture core scenes
-        run: pnpm screenshots:mobile $SHOWCASE_ARGS $CORE_SCENES
+        # Keeps the simulator up after a failure so the next step can show what it was stuck on.
+        run: pnpm screenshots:mobile $SHOWCASE_ARGS $CORE_SCENES --keep-running
+
+      - name: Collect simulator diagnostics
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/diagnostics"
+          for udid in $(xcrun simctl list devices booted -j | jq -r '.devices[][] | .udid'); do
+            xcrun simctl io "$udid" screenshot "$RUNNER_TEMP/diagnostics/$udid.png" || true
+            xcrun simctl spawn "$udid" log show --last 20m --style compact \
+              --predicate 'process == "EasyDevCode"' > "$RUNNER_TEMP/diagnostics/$udid.log" || true
+            tail -n 200 "$RUNNER_TEMP/diagnostics/$udid.log" | grep -iE "showcase|error|warn|exception|metro|bundle" | tail -n 80 || true
+          done
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: simulator-diagnostics
+          path: ${{ runner.temp }}/diagnostics/
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Keep core captures
         # A later run clears its device folder before capturing.
@@ -92,7 +113,11 @@ jobs:
       - name: Capture agent activity
         if: github.event_name == 'push' || inputs.agent_activity
         continue-on-error: true
-        run: pnpm screenshots:mobile --device iphone-6.9 --appearance dark --theme easydev --scene agent-activity --skip-build
+        # The core capture's --keep-running leaves its Metro on the harness port; reuse it.
+        run: |
+          metro_args=""
+          if nc -z 127.0.0.1 8199; then metro_args="--skip-metro"; fi
+          pnpm screenshots:mobile --device iphone-6.9 --appearance dark --theme easydev --scene agent-activity --skip-build $metro_args
 
       - name: Restore core captures
         if: always()
