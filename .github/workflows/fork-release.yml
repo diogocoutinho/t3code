@@ -337,9 +337,15 @@ jobs:
         if: needs.config.outputs.mac == 'true'
         run: |
           set -euo pipefail
-          node scripts/merge-update-manifests.ts --platform mac \
-            release-assets/latest-mac.yml release-assets/latest-mac-x64.yml release-assets/latest-mac.yml
-          rm release-assets/latest-mac-x64.yml
+          if [[ -f release-assets/latest-mac.yml && -f release-assets/latest-mac-x64.yml ]]; then
+            node scripts/merge-update-manifests.ts --platform mac \
+              release-assets/latest-mac.yml release-assets/latest-mac-x64.yml release-assets/latest-mac.yml
+          else
+            # A feed without both archs would update Macs to the wrong build, so ship none.
+            echo "::warning::A macOS build is missing; publishing without the macOS update feed."
+            rm -f release-assets/latest-mac.yml
+          fi
+          rm -f release-assets/latest-mac-x64.yml
 
       # release-desktop.yml suffixes the Windows feed with its arch; electron-updater reads latest.yml.
       - name: Name the Windows updater manifest
