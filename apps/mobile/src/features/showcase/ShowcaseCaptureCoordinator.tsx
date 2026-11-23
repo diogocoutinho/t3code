@@ -58,6 +58,8 @@ import { settingsNavigationState } from "../settings/settings-navigation";
 import { selectWorkspaceDetail } from "../layout/workspace/workspace-detail-selection";
 
 const SHOWCASE_ENABLED = process.env.EXPO_PUBLIC_SHOWCASE === "1";
+// Unset languages mean English, and simctl cannot set an app preference; Metro inlines this.
+const SHOWCASE_LANGUAGE = process.env.EXPO_PUBLIC_SHOWCASE_LANGUAGE?.trim() || null;
 // Native launch requests (pairing links, scene switches) have no change event.
 const NATIVE_POLL_MS = 250;
 const READY_SETTLE_MS = 500;
@@ -294,6 +296,11 @@ export function installShowcaseCapture(
         createMobileThemePairPatch(requestedTheme),
       );
     }
+    const languageApplied =
+      SHOWCASE_LANGUAGE === null || storedPreferences?.language === SHOWCASE_LANGUAGE;
+    if (SHOWCASE_LANGUAGE !== null && !languageApplied && storedPreferences) {
+      void runAtomCommand(appAtomRegistry, saveMobilePreferences, { language: SHOWCASE_LANGUAGE });
+    }
     const themeId = themeIds[resolveThemeAppearance(storedPreferences)];
 
     const projects = appAtomRegistry.get(environmentProjects.projectsAtom);
@@ -344,7 +351,7 @@ export function installShowcaseCapture(
         requestedScene,
         hasFixture,
         orientationSettled,
-        themeApplied,
+        themeApplied: themeApplied && languageApplied,
         agentActivityStaged: agentActivity?.done === true,
         themeId,
         renderSignal: render.signal,

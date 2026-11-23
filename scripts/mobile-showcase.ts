@@ -29,20 +29,20 @@ import {
   SHOWCASE_THREADS,
   seedShowcaseEnvironment,
 } from "./mobile-showcase-environment.ts";
+import { loadRepoEnv, resolveAppScheme } from "./lib/public-config.ts";
 
 const REPO_ROOT = NodePath.resolve(NodePath.dirname(NodeURL.fileURLToPath(import.meta.url)), "..");
 const MOBILE_ROOT = NodePath.join(REPO_ROOT, "apps/mobile");
-const ANDROID_PACKAGE = "com.t3tools.t3code";
-const APP_SCHEME = "t3code";
+const REPO_ENV = loadRepoEnv();
+// The production variant's bundle id and Android package; a fork sets its own.
+const ANDROID_PACKAGE = REPO_ENV.T3CODE_MOBILE_BUNDLE_ID?.trim() || "com.t3tools.t3code";
+const APP_SCHEME = resolveAppScheme(REPO_ENV);
 // Manifest flags update expo-dev-launcher preferences before loading, hiding dev chrome in captures.
 const DEV_CLIENT_LAUNCH_FLAGS = "disableOnboarding=1&disableFab=1&disableAutoLaunch=1";
 const IOS_READY_FILENAME = "T3ShowcaseReadyScene";
 const SERVER_HOST = "0.0.0.0";
 const IOS_SIMULATOR_ARCH = NodeProcess.arch === "arm64" ? "arm64" : "x86_64";
-const IOS_APP_PATH = NodePath.join(
-  MOBILE_ROOT,
-  ".showcase/ios-derived-data/Build/Products/Debug-iphonesimulator/T3Code.app",
-);
+const IOS_DERIVED_DATA = NodePath.join(MOBILE_ROOT, ".showcase/ios-derived-data");
 const ANDROID_APK_PATH = NodePath.join(
   MOBILE_ROOT,
   "android/app/build/outputs/apk/debug/app-debug.apk",
@@ -758,25 +758,37 @@ async function warmMetroBundle(
   await runCommand("curl", ["--fail", "--silent", "--show-error", "--output", "/dev/null", url]);
 }
 
+// Prebuild names the Xcode project after the app, which T3CODE_APP_NAME renames in a fork.
+async function iosProjectName(): Promise<string | null> {
+  const entries = await NodeFSP.readdir(NodePath.join(MOBILE_ROOT, "ios")).catch(() => []);
+  const workspace = entries.find((entry) => entry.endsWith(".xcworkspace"));
+  return workspace ? workspace.slice(0, -".xcworkspace".length) : null;
+}
+
+function iosAppPath(projectName: string): string {
+  return NodePath.join(IOS_DERIVED_DATA, `Build/Products/Debug-iphonesimulator/${projectName}.app`);
+}
+
 async function buildIos(): Promise<string> {
-  const derivedData = NodePath.join(MOBILE_ROOT, ".showcase/ios-derived-data");
   await runCommand("pnpm", ["exec", "expo", "prebuild", "--clean", "--platform", "ios"], {
     cwd: MOBILE_ROOT,
     env: MOBILE_BUILD_ENV,
   });
+  const projectName = await iosProjectName();
+  if (!projectName) throw new Error("Expo prebuild produced no Xcode workspace.");
   await runCommand(
     "xcodebuild",
     [
       "-workspace",
-      NodePath.join(MOBILE_ROOT, "ios/T3Code.xcworkspace"),
+      NodePath.join(MOBILE_ROOT, `ios/${projectName}.xcworkspace`),
       "-scheme",
-      "T3Code",
+      projectName,
       "-configuration",
       "Debug",
       "-sdk",
       "iphonesimulator",
       "-derivedDataPath",
-      derivedData,
+      IOS_DERIVED_DATA,
       "-quiet",
       `ARCHS=${IOS_SIMULATOR_ARCH}`,
       "ONLY_ACTIVE_ARCH=YES",
@@ -784,7 +796,12 @@ async function buildIos(): Promise<string> {
     ],
     { cwd: MOBILE_ROOT, env: MOBILE_BUILD_ENV },
   );
-  return IOS_APP_PATH;
+  return iosAppPath(projectName);
+}
+
+async function existingIosApp(): Promise<string | null> {
+  const projectName = await iosProjectName();
+  return projectName ? await existingArtifact(iosAppPath(projectName)) : null;
 }
 
 async function buildAndroid(abis: ReadonlyArray<string>): Promise<string> {
@@ -1582,7 +1599,7 @@ async function main(): Promise<void> {
 
     const iosAppPath = hasIos
       ? options.skipBuild
-        ? await existingArtifact(IOS_APP_PATH)
+        ? await existingIosApp()
         : await buildIos()
       : null;
     const androidAbis = captures.flatMap((capture) =>

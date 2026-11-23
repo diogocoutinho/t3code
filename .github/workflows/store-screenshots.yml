@@ -1,0 +1,115 @@
+name: EasyDev Store Screenshots
+
+# Captures the EasyDev Code App Store screenshots (iPhone 6.9" and iPad 13", dark, EasyDev
+# palette, pt-BR) with the mobile showcase harness on a GitHub-hosted runner, which is free for
+# this public fork. Upstream's Mobile Showcase Screenshots workflow needs Blacksmith runners.
+on:
+  workflow_dispatch:
+    inputs:
+      agent_activity:
+        description: Also capture the iPhone lock-screen agent-activity scene (best effort)
+        required: false
+        default: true
+        type: boolean
+  push:
+    branches: [chore/store-screenshots]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: store-screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+  # The standalone build: EasyDev name, icon, fonts, and default palette. Simulator builds need
+  # no signing or Clerk keys.
+  T3CODE_STANDALONE: "1"
+  T3CODE_APP_NAME: EasyDev Code
+  T3CODE_APP_SCHEME: easydevcode
+  T3CODE_MOBILE_BUNDLE_ID: br.com.easydevsolucoes.easydevcode.mobile
+  EXPO_PUBLIC_SHOWCASE_LANGUAGE: pt-BR
+  SHOWCASE_ARGS: --device iphone-6.9 --device ipad-13 --appearance dark --theme easydev
+  CORE_SCENES: --scene thread --scene terminal --scene review --scene threads --scene environments
+
+jobs:
+  ios:
+    name: iPhone 6.9" and iPad 13"
+    if: github.repository == 'diogocoutinho/t3code'
+    # Xcode 27.1, as upstream's showcase and EAS builds use; it ships iPad Pro 13-inch (M5).
+    runs-on: xcode-27
+    timeout-minutes: 150
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          sparse-checkout: |
+            /*
+            !/.repos/
+          sparse-checkout-cone-mode: false
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version-file: package.json
+          cache: true
+          run-install: |
+            args:
+              - --filter=@t3tools/mobile...
+              - --filter=@t3tools/scripts...
+              - --filter=t3...
+
+      - name: Expose pnpm
+        run: |
+          pnpm_version="$(node --print "require('./package.json').packageManager.split('@').pop()")"
+          vp_pnpm_bin="$HOME/.vite-plus/package_manager/pnpm/$pnpm_version/pnpm/bin"
+          echo "$vp_pnpm_bin" >> "$GITHUB_PATH"
+          "$vp_pnpm_bin/pnpm" --version
+
+      - name: Preflight
+        run: |
+          xcodebuild -version
+          xcrun simctl list devicetypes | grep -E "iPhone 17 Pro Max|iPad Pro 13-inch \(M5\)"
+          xcrun simctl list runtimes
+          pnpm screenshots:mobile --list
+
+      - name: Install AXe
+        # Locks the simulator and answers the notification prompt for agent-activity.
+        run: |
+          brew tap cameroncooke/axe
+          if brew commands | grep -qx trust; then brew trust --formula cameroncooke/axe/axe; fi
+          brew install cameroncooke/axe/axe
+          axe --version
+
+      - name: Capture core scenes
+        run: pnpm screenshots:mobile $SHOWCASE_ARGS $CORE_SCENES
+
+      - name: Keep core captures
+        # A later run clears its device folder before capturing.
+        run: cp -R artifacts/app-store/screenshots "$RUNNER_TEMP/core-screenshots"
+
+      - name: Capture agent activity
+        if: github.event_name == 'push' || inputs.agent_activity
+        continue-on-error: true
+        run: pnpm screenshots:mobile --device iphone-6.9 --appearance dark --theme easydev --scene agent-activity --skip-build
+
+      - name: Restore core captures
+        if: always()
+        run: |
+          if [ -d "$RUNNER_TEMP/core-screenshots" ]; then
+            mkdir -p artifacts/app-store/screenshots
+            cp -R "$RUNNER_TEMP/core-screenshots/." artifacts/app-store/screenshots/
+          fi
+
+      - name: Validate App Store Connect assets
+        run: pnpm screenshots:mobile $SHOWCASE_ARGS $CORE_SCENES --validate-only
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: easydev-app-store-screenshots
+          path: artifacts/app-store/screenshots/apple/
+          if-no-files-found: warn
+          retention-days: 14

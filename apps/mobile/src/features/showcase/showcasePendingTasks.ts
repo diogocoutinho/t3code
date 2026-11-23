@@ -15,16 +15,16 @@ export const SHOWCASE_PENDING_TASK_DEFINITIONS = [
     projectId: "t3code",
     id: "offline-launch-checklist",
     // oxlint-disable-next-line t3code/no-untranslated-copy -- showcase fixture data
-    text: "Ship the offline launch checklist before touchdown ✈️",
-    branch: "feat/offline-launchpad",
+    text: "Revisar o fluxo de trocas e devoluções antes do pouso ✈️",
+    branch: "feat/trocas-devolucoes",
     minutesAgo: 8,
   },
   {
     projectId: "react",
     id: "train-tunnel-suspense",
     // oxlint-disable-next-line t3code/no-untranslated-copy -- showcase fixture data
-    text: "Polish the Suspense handoff for the train tunnel 🚇",
-    branch: "perf/tunnel-handoff",
+    text: "Deixar a agenda funcionando offline no metrô 🚇",
+    branch: "fix/agenda-offline",
     minutesAgo: 27,
   },
 ] as const;

@@ -31,7 +31,7 @@ const PROJECT_SCRIPTS = JSON.stringify([
   },
   {
     id: "test",
-    name: "Tests",
+    name: "Testes",
     command: "pnpm test",
     icon: "test",
     runOnWorktreeCreate: false,
@@ -39,16 +39,16 @@ const PROJECT_SCRIPTS = JSON.stringify([
 ]);
 
 const SHOWCASE_TERMINAL_PROMPT =
-  "\u001b[1;32m→\u001b[0m \u001b[1;36mt3code\u001b[0m \u001b[1;34mgit:(\u001b[1;31mfeat/remote-command-center\u001b[1;34m)\u001b[0m \u001b[1;33m✗\u001b[0m ";
+  "\u001b[1;32m→\u001b[0m \u001b[1;36mloja-online\u001b[0m \u001b[1;34mgit:(\u001b[1;31mfeat/checkout-rapido\u001b[1;34m)\u001b[0m \u001b[1;33m✗\u001b[0m ";
 
 const SHOWCASE_TERMINAL_BUFFER = [
-  `${SHOWCASE_TERMINAL_PROMPT}vpr dev`,
+  `${SHOWCASE_TERMINAL_PROMPT}pnpm dev`,
   "",
   "  \u001b[1;32mVITE\u001b[0m \u001b[32mv7.1.1\u001b[0m  \u001b[2mready in\u001b[0m \u001b[1m1.24s\u001b[0m",
   "",
   "  \u001b[32m→\u001b[0m  \u001b[2mLocal:\u001b[0m    \u001b[4;36mhttp://127.0.0.1:5173/\u001b[0m",
   "  \u001b[32m→\u001b[0m  \u001b[2mNetwork:\u001b[0m  \u001b[4;36mhttp://192.168.1.24:5173/\u001b[0m",
-  "  \u001b[32m→\u001b[0m  \u001b[2mProject:\u001b[0m  \u001b[1mt3code\u001b[0m \u001b[2m(~/Code/t3code)\u001b[0m",
+  "  \u001b[32m→\u001b[0m  \u001b[2mProject:\u001b[0m  \u001b[1mloja-online\u001b[0m \u001b[2m(~/projetos/loja-online)\u001b[0m",
   "",
   "  \u001b[32m✓ 612 passed\u001b[0m   \u001b[33m△ 2 warnings\u001b[0m   \u001b[31m✗ 0 failed\u001b[0m",
   "",
@@ -57,89 +57,83 @@ const SHOWCASE_TERMINAL_BUFFER = [
   SHOWCASE_TERMINAL_PROMPT,
 ].join("\r\n");
 
-const BASE_ENVIRONMENT_PRESENCE = `export function environmentLabel(count: number): string {
-  return \`${"${count}"} environments\`;
+const BASE_CART_SUMMARY = `export function resumoDoCarrinho(itens: number): string {
+  return \`${"${itens}"} itens no carrinho\`;
 }
 `;
 
-const UPDATED_ENVIRONMENT_PRESENCE = `const PULSE = ["✦", "✧", "·", "✧"] as const;
+const UPDATED_CART_SUMMARY = `const MOEDA = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-export function environmentLabel(connected: number, total: number, frame: number): string {
-  const pulse = PULSE[frame % PULSE.length];
-  return \`${"${pulse} ${connected}/${total}"} ready\`;
+export function resumoDoCarrinho(itens: number, total: number, desconto: number): string {
+  const valor = MOEDA.format(total - desconto);
+  return \`${"${itens}"} itens · ${"${valor}"}\`;
 }
 `;
 
-const REMOTE_HANDOFF_CARD = `import { View, Text } from "react-native";
+const COUPON_CARD = `import { View, Text } from "react-native";
 
-export function RemoteHandoffCard(props: { machine: string; latencyMs: number }) {
+export function CupomAplicado(props: { codigo: string; economia: string }) {
   return (
     <View className="rounded-2xl bg-surface-2 p-4">
-      <Text className="font-semibold">Ready on {props.machine}</Text>
-      <Text className="text-success">Handoff in {props.latencyMs}ms</Text>
+      <Text className="font-semibold">Cupom {props.codigo} aplicado</Text>
+      <Text className="text-success">Você economizou {props.economia}</Text>
     </View>
   );
 }
 `;
 
+function monogramFavicon(letter: string, background: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="15" fill="${background}"/>
+  <text x="32" y="43" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="700" fill="#fff">${letter}</text>
+</svg>`;
+}
+
 const PROJECT_FAVICONS = {
-  t3code: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <rect width="128" height="128" rx="10" fill="#000"/>
-  <path d="M33.4509 93V47.56H15.5309V37H64.3309V47.56H46.4109V93H33.4509ZM86.7253 93.96C82.832 93.96 78.9653 93.4533 75.1253 92.44C71.2853 91.3733 68.032 89.88 65.3653 87.96L70.4053 78.04C72.5386 79.5867 75.0186 80.8133 77.8453 81.72C80.672 82.6267 83.5253 83.08 86.4053 83.08C89.6586 83.08 92.2186 82.44 94.0853 81.16C95.952 79.88 96.8853 78.12 96.8853 75.88C96.8853 73.7467 96.0586 72.0667 94.4053 70.84C92.752 69.6133 90.0853 69 86.4053 69H80.4853V60.44L96.0853 42.76L97.5253 47.4H68.1653V37H107.365V45.4L91.8453 63.08L85.2853 59.32H89.0453C95.9253 59.32 101.125 60.8667 104.645 63.96C108.165 67.0533 109.925 71.0267 109.925 75.88C109.925 79.0267 109.099 81.9867 107.445 84.76C105.792 87.48 103.259 89.6933 99.8453 91.4C96.432 93.1067 92.0586 93.96 86.7253 93.96Z" fill="#fff"/>
-</svg>`,
-  react: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="15" fill="#20232a"/>
-  <g fill="none" stroke="#61dafb" stroke-width="2.8"><ellipse cx="32" cy="32" rx="25" ry="9"/><ellipse cx="32" cy="32" rx="25" ry="9" transform="rotate(60 32 32)"/><ellipse cx="32" cy="32" rx="25" ry="9" transform="rotate(120 32 32)"/></g>
-  <circle cx="32" cy="32" r="4.8" fill="#61dafb"/>
-</svg>`,
-  linux: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="15" fill="#f7c948"/>
-  <ellipse cx="32" cy="35" rx="17" ry="22" fill="#202124"/>
-  <ellipse cx="32" cy="40" rx="12" ry="14" fill="#f5f5f2"/>
-  <circle cx="27" cy="24" r="5" fill="white"/><circle cx="37" cy="24" r="5" fill="white"/>
-  <circle cx="28" cy="25" r="2"/><circle cx="36" cy="25" r="2"/>
-  <path d="M27 31l5-4 5 4-5 4z" fill="#f28c28"/><path d="M16 55h14l-7-5zM34 55h14l-7-5z" fill="#f28c28"/>
-</svg>`,
+  t3code: monogramFavicon("L", "#e2572b"),
+  react: monogramFavicon("A", "#2f7de1"),
+  linux: monogramFavicon("P", "#1f9d6b"),
 } as const;
 
 export const SHOWCASE_PROJECTS = [
   {
     id: "t3code",
-    title: "T3 Code",
-    directory: "t3code",
-    repositoryUrl: "https://github.com/pingdotgg/t3code.git",
+    title: "loja-online",
+    directory: "loja-online",
+    repositoryUrl: "https://git.example.com/equipe/loja-online.git",
     favicon: PROJECT_FAVICONS.t3code,
   },
   {
     id: "react",
-    title: "React",
-    directory: "react",
-    repositoryUrl: "https://github.com/facebook/react.git",
+    title: "app-agenda",
+    directory: "app-agenda",
+    repositoryUrl: "https://git.example.com/equipe/app-agenda.git",
     favicon: PROJECT_FAVICONS.react,
   },
   {
     id: "linux",
-    title: "Linux",
-    directory: "linux",
-    repositoryUrl: "https://github.com/torvalds/linux.git",
+    title: "api-pagamentos",
+    directory: "api-pagamentos",
+    repositoryUrl: "https://git.example.com/equipe/api-pagamentos.git",
     favicon: PROJECT_FAVICONS.linux,
   },
 ] as const;
 
+// The labels key the display URLs in apps/mobile/src/features/showcase/showcaseEnvironmentRows.ts.
 export const SHOWCASE_ENVIRONMENTS = [
   {
     id: "moonbase-terminal",
-    label: "Moonbase Terminal",
+    label: "Servidor",
     projectIds: ["t3code"],
   },
   {
     id: "suspense-station",
-    label: "Suspense Station",
+    label: "MacBook",
     projectIds: ["react"],
   },
   {
     id: "kernel-cabin",
-    label: "Kernel Cabin",
+    label: "Notebook",
     projectIds: ["linux"],
   },
 ] as const;
@@ -148,103 +142,104 @@ export const SHOWCASE_THREADS = [
   {
     id: SHOWCASE_THREAD_ID,
     projectId: "t3code",
-    title: "Make remote coding feel local ✦",
-    branch: "feat/remote-command-center",
+    title: "Checkout em uma tela só ✦",
+    branch: "feat/checkout-rapido",
     minutesAgo: 3,
     request:
-      "Give T3 Code a remote-first command center. Make three machines feel one tap away, keep agent work in sync, and make every handoff feel instant.",
+      "Simplifique o checkout da loja: carrinho, frete e pagamento numa tela só, com o cupom aplicado na hora e sem perder o carrinho se a conexão cair.",
     response:
-      "T3 Code now treats every machine like it is right here in the room. ✦\n\n- Moonbase, Suspense Station, and Kernel Cabin stay live together\n- Terminal state follows you without losing a single line\n- Agent work remains perfectly in sync across devices\n- Handoffs land before your train of thought can wander\n\nI also ran the changed workspace: **612 tests passed**.",
+      "O checkout agora cabe numa tela só. ✦\n\n- Carrinho, frete e pagamento ficam visíveis juntos\n- O cupom é validado e aplicado na hora\n- O carrinho fica salvo no aparelho e sobrevive a quedas de conexão\n- O resumo mostra o total atualizado a cada alteração\n\nTambém rodei a suíte do projeto: **612 testes passaram**.",
   },
   {
     id: "pocket-command-center",
     projectId: "t3code",
-    title: "Put the command center in your pocket",
-    branch: "feat/pocket-command-center",
+    title: "Pix com QR Code no checkout",
+    branch: "feat/pix-checkout",
     minutesAgo: 21,
     state: "approval" as const,
-    request: "Make switching between desktop, phone, and tablet feel like one continuous session.",
+    request:
+      "Adicione pagamento por Pix com QR Code e confirmação automática quando o pagamento cair.",
     response:
-      "The handoff flow preserves the selected thread, terminal buffer, and working diff. The final motion treatment is ready for approval.",
+      "O QR Code é gerado junto com o pedido e a confirmação chega pelo webhook do banco. Falta aprovar a migração da tabela de pedidos.",
   },
   {
     id: "buttery-suspense",
     projectId: "react",
-    title: "Make Suspense transitions buttery",
-    branch: "perf/buttery-suspense",
+    title: "Lembretes de consulta por notificação",
+    branch: "feat/lembretes",
     minutesAgo: 12,
     state: "working" as const,
     request:
-      "Trace the last few dropped frames in nested Suspense transitions and make them disappear.",
+      "Envie um lembrete 24 horas e 1 hora antes de cada agendamento, respeitando o fuso horário do cliente.",
     response: null,
   },
   {
     id: "hydration-haikus",
     projectId: "react",
-    title: "Turn hydration warnings into haikus",
-    branch: "dev/hydration-haikus",
+    title: "Bloquear o horário de almoço na agenda",
+    branch: "feat/bloqueio-almoco",
     minutesAgo: 44,
     request:
-      "Keep hydration errors precise, but make the development copy unexpectedly delightful.",
+      "Permita que cada profissional bloqueie horários fixos, como o almoço, sem criar agendamentos falsos.",
     response:
-      "The diagnostics still lead with the exact mismatch and component stack. A tiny optional haiku now closes the expanded explanation.",
+      "Cada profissional agora define intervalos recorrentes. Os horários bloqueados somem da tela de agendamento e não contam como faltas.",
     snoozeMinutes: 90,
   },
   {
     id: "beautiful-boot",
     projectId: "linux",
-    title: "Make boot logs oddly beautiful",
-    branch: "feat/beautiful-boot",
+    title: "Planejar estornos parciais",
+    branch: "feat/estornos-parciais",
     minutesAgo: 34,
     state: "plan" as const,
-    request:
-      "Design a clearer boot timeline that remains useful over serial and never hides kernel detail.",
+    request: "Planeje o suporte a estorno parcial sem quebrar a conciliação diária.",
     response:
-      "The plan groups milestones without changing the underlying log stream, preserves plain-text output, and adds zero work to the hot path.",
+      "O plano registra cada estorno como um lançamento próprio, mantém o saldo do pedido consistente e ajusta a conciliação sem reprocessar dias já fechados.",
   },
   {
     id: "patient-penguins",
     projectId: "linux",
-    title: "Teach penguins to wait patiently",
-    branch: "feat/patient-penguins",
+    title: "Reenviar webhooks com backoff",
+    branch: "feat/webhook-retry",
     minutesAgo: 52,
-    request: "Make delayed work easier to follow without adding noise to the scheduler trace.",
+    request:
+      "Quando o parceiro estiver fora do ar, reenvie os webhooks com intervalo crescente e sem duplicar eventos.",
     response:
-      "Delayed work now carries a concise reason through the trace, so the wait is legible without changing scheduling behavior.",
+      "Os webhooks agora são reenviados com backoff exponencial e chave de idempotência, então o parceiro nunca recebe o mesmo evento duas vezes.",
     snoozeMinutes: 8 * 60,
   },
   {
     id: "handoff-haptics",
     projectId: "t3code",
-    title: "Tune the handoff haptics",
-    branch: "feat/handoff-haptics",
+    title: "Fotos dos produtos em WebP",
+    branch: "perf/imagens-webp",
     minutesAgo: 5 * 60,
     settled: true,
-    request: "Give the desktop-to-phone handoff a haptic that lands with the animation.",
+    request: "Converta as fotos dos produtos para WebP e carregue sob demanda.",
     response:
-      "The handoff now taps once as the thread lands and stays silent on failure, so the phone never celebrates a handoff that did not happen.",
+      "As fotos agora são servidas em WebP e carregadas sob demanda; a página de produto ficou 40% mais leve.",
   },
   {
     id: "streaming-shell",
     projectId: "react",
-    title: "Stream the shell before the data",
-    branch: "feat/streaming-shell",
+    title: "Login com código por e-mail",
+    branch: "feat/login-codigo",
     minutesAgo: 28 * 60,
     settled: true,
-    request: "Get the app shell painted before any data request resolves.",
+    request: "Troque a senha por um código de 6 dígitos enviado por e-mail.",
     response:
-      "The shell now flushes on first byte and the data boundaries hydrate underneath it, so the first paint no longer waits on the slowest query.",
+      "O login agora envia um código de uso único, válido por 10 minutos, com limite de tentativas por endereço.",
   },
   {
     id: "quieter-oom",
     projectId: "linux",
-    title: "Make the OOM killer explain itself",
-    branch: "feat/quieter-oom",
+    title: "Logs sem dados sensíveis",
+    branch: "fix/logs-mascarados",
     minutesAgo: 2 * 24 * 60,
     settled: true,
-    request: "Make out-of-memory kills legible without adding a single allocation to the hot path.",
+    request: "Garanta que número de cartão e CPF nunca apareçam nos logs.",
     response:
-      "Kills now report the winning heuristic and the runner-up alongside the usual dump, assembled entirely from data the path already had.",
+      "Os logs agora mascaram cartão e CPF na origem, e um teste falha se algum campo sensível escapar.",
   },
 ] as const;
 
@@ -277,31 +272,29 @@ async function initializeRepository(input: {
 }
 
 async function seedT3CodeWorkspace(workspaceRoot: string): Promise<void> {
-  await NodeFSP.mkdir(NodePath.join(workspaceRoot, "apps/mobile/src/features/home"), {
-    recursive: true,
-  });
+  await NodeFSP.mkdir(NodePath.join(workspaceRoot, "src/carrinho"), { recursive: true });
   await NodeFSP.writeFile(
     NodePath.join(workspaceRoot, "package.json"),
-    `${JSON.stringify({ name: "t3code", private: true, scripts: { test: "vp test" } }, null, 2)}\n`,
+    `${JSON.stringify({ name: "loja-online", private: true, scripts: { test: "vitest" } }, null, 2)}\n`,
   );
   await NodeFSP.writeFile(NodePath.join(workspaceRoot, "favicon.svg"), PROJECT_FAVICONS.t3code);
   await NodeFSP.writeFile(
-    NodePath.join(workspaceRoot, "apps/mobile/src/features/home/environmentPresence.ts"),
-    BASE_ENVIRONMENT_PRESENCE,
+    NodePath.join(workspaceRoot, "src/carrinho/resumoDoCarrinho.ts"),
+    BASE_CART_SUMMARY,
   );
   await initializeRepository({
     workspaceRoot,
-    repositoryUrl: "https://github.com/pingdotgg/t3code.git",
-    commitMessage: "Show connected environments",
+    repositoryUrl: "https://git.example.com/equipe/loja-online.git",
+    commitMessage: "Mostrar resumo do carrinho",
   });
-  await runGit(workspaceRoot, ["checkout", "-b", "feat/remote-command-center"]);
+  await runGit(workspaceRoot, ["checkout", "-b", "feat/checkout-rapido"]);
   await NodeFSP.writeFile(
-    NodePath.join(workspaceRoot, "apps/mobile/src/features/home/environmentPresence.ts"),
-    UPDATED_ENVIRONMENT_PRESENCE,
+    NodePath.join(workspaceRoot, "src/carrinho/resumoDoCarrinho.ts"),
+    UPDATED_CART_SUMMARY,
   );
   await NodeFSP.writeFile(
-    NodePath.join(workspaceRoot, "apps/mobile/src/features/home/RemoteHandoffCard.tsx"),
-    REMOTE_HANDOFF_CARD,
+    NodePath.join(workspaceRoot, "src/carrinho/CupomAplicado.tsx"),
+    COUPON_CARD,
   );
 }
 
@@ -315,12 +308,12 @@ async function seedCompanionWorkspace(input: {
   await NodeFSP.writeFile(NodePath.join(input.workspaceRoot, "favicon.svg"), input.favicon);
   await NodeFSP.writeFile(
     NodePath.join(input.workspaceRoot, "README.md"),
-    `# ${input.title}\n\nSeeded by the T3 Code mobile screenshot harness.\n`,
+    `# ${input.title}\n\nCriado pelo gerador de screenshots do app.\n`,
   );
   await initializeRepository({
     workspaceRoot: input.workspaceRoot,
     repositoryUrl: input.repositoryUrl,
-    commitMessage: `Seed ${input.title} workspace`,
+    commitMessage: `Criar projeto ${input.title}`,
   });
 }
 
