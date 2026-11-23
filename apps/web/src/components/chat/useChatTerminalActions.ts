@@ -1,4 +1,5 @@
 import { msg } from "gt-react";
+import { scopedThreadKey } from "@t3tools/client-runtime/environment";
 import { thrownErrorMessage } from "@t3tools/client-runtime/errors";
 import { m } from "~/i18n/messages";
 import type {
@@ -325,7 +326,10 @@ export function useChatTerminalActions(input: ChatTerminalActionsInput) {
     if (!surface) return;
     terminalActions.closeTerminalSession(terminalId, target);
     store.closeTerminal(target, surface.id, terminalId);
-    focusActivePanelTerminal(target);
+    // A shell exiting in a hidden thread's drawer must not take focus here.
+    if (activeThreadRef && scopedThreadKey(target) === scopedThreadKey(activeThreadRef)) {
+      focusActivePanelTerminal(target);
+    }
   };
   const closePanelTerminalStable = useStableCallback(closePanelTerminal);
   const requestClosePanelTerminal = (terminalId: string) => {

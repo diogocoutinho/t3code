@@ -9,6 +9,7 @@ import {
   clampTerminalDrawerHeight,
   latestTurnChangeTotals,
   nextUnseenRightPanelGroups,
+  reconcileMountedTerminalThreads,
   reconcileTerminalSurfaceIds,
   rightPanelGroupOf,
   rightPanelGroupTarget,
@@ -324,6 +325,38 @@ describe("terminal mounting", () => {
     expect(terminalSurfaceMount({ terminalIds: ["a"], serverIds: [], claimedIds: [] })).toEqual({
       kind: "ended",
     });
+  });
+});
+
+describe("mounted terminal threads", () => {
+  const open = new Set(["a", "b", "c", "d"]);
+
+  it("mounts the active thread once its drawer shows and keeps it through a collapse", () => {
+    const reconcile = (current: string[], activeShowing: boolean) =>
+      reconcileMountedTerminalThreads({ current, panelOpen: open, active: "a", activeShowing });
+    expect(reconcile([], false)).toEqual([]);
+    expect(reconcile([], true)).toEqual(["a"]);
+    expect(reconcile(["a"], false)).toEqual(["a"]);
+  });
+
+  it("keeps recently shown threads whose panel is open, most recent last, up to the cap", () => {
+    expect(
+      reconcileMountedTerminalThreads({
+        current: ["a", "b", "c"],
+        panelOpen: open,
+        active: "a",
+        activeShowing: true,
+      }),
+    ).toEqual(["b", "c", "a"]);
+    expect(
+      reconcileMountedTerminalThreads({
+        current: ["a", "b", "c"],
+        panelOpen: new Set(["a", "c", "d"]),
+        active: "d",
+        activeShowing: true,
+        maxHidden: 1,
+      }),
+    ).toEqual(["c", "d"]);
   });
 });
 

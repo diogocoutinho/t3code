@@ -85,6 +85,22 @@ function terminalRpcs() {
   };
 }
 
+function terminalSummary(threadId: string, terminalId: string) {
+  return {
+    threadId,
+    terminalId,
+    cwd: "/workspace",
+    worktreePath: null,
+    status: "running" as const,
+    pid: 10,
+    exitCode: null,
+    exitSignal: null,
+    hasRunningSubprocess: false,
+    label: "",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+}
+
 async function renderThreadApp(threads: Parameters<typeof installFakeEnvironment>[0]) {
   await using stack = new AsyncDisposableStack();
   await page.viewport(1280, 800);
@@ -139,21 +155,11 @@ it("terminals from the old chat drawer appear as drawer sub-tabs without closing
   using rpcs = terminalRpcs();
   await using _app = await renderThreadApp([thread]);
   const ref = scopeThreadRef(ENVIRONMENT_ID, thread.id);
-  const summary = (terminalId: string) => ({
-    threadId: thread.id,
-    terminalId,
-    cwd: "/workspace",
-    worktreePath: null,
-    status: "running" as const,
-    pid: 10,
-    exitCode: null,
-    exitSignal: null,
-    hasRunningSubprocess: false,
-    label: "",
-    updatedAt: "2026-01-01T00:00:00.000Z",
-  });
   await vi.waitFor(() =>
-    emitTerminalMetadata({ type: "snapshot", terminals: [summary("default"), summary("term-2")] }),
+    emitTerminalMetadata({
+      type: "snapshot",
+      terminals: [terminalSummary(thread.id, "default"), terminalSummary(thread.id, "term-2")],
+    }),
   );
 
   await vi.waitFor(() =>
@@ -190,6 +196,37 @@ it("switching to a thread with no terminals while the drawer is open launches no
   expect(useRightPanelStore.getState().terminalDrawer.open).toBe(true);
   expect(rpcs.opened).toEqual([]);
   expect(rpcs.closed).toEqual([]);
+});
+
+it("switching away and back keeps a thread's drawer terminal attached, even through a thread with the panel closed", async () => {
+  resetRightPanelDrawer();
+  const first = threadWithHistory("thread-terminal-kept", 1);
+  const second = threadWithHistory("thread-terminal-other", 1);
+  const firstRef = scopeThreadRef(ENVIRONMENT_ID, first.id);
+  useRightPanelStore.getState().openTerminal(firstRef, "kept");
+  // A sub-tab from an earlier session, so it mounts once, when the server lists it.
+  useRightPanelStore.setState({ claimedTerminalIdsByThreadKey: {} });
+  using rpcs = terminalRpcs();
+  await using app = await renderThreadApp([first, second]);
+  await expect.element(page.getByTestId("composer-editor")).toBeVisible();
+  await vi.waitFor(() =>
+    emitTerminalMetadata({ type: "snapshot", terminals: [terminalSummary(first.id, "kept")] }),
+  );
+  await vi.waitFor(() => expect(rpcs.attached).toEqual(["kept"]));
+
+  await act(() => app.router.navigate({ to: `/${ENVIRONMENT_ID}/${second.id}` }));
+  await expect.element(page.getByTestId("composer-editor")).toBeVisible();
+  await act(() => app.router.navigate({ to: `/${ENVIRONMENT_ID}/${first.id}` }));
+  await expect.element(page.getByRole("button", { name: "Collapse terminal" })).toBeVisible();
+  await vi.waitFor(() =>
+    expect(
+      document.querySelector(
+        '[data-right-panel-terminal-body] [data-terminal-owner="right-panel"]',
+      ),
+    ).not.toBeNull(),
+  );
+  expect(rpcs.attached).toEqual(["kept"]);
+  expect(rpcs.opened).toEqual([]);
 });
 
 it("a saved sub-tab the server no longer lists starts no shell and offers Restart", async () => {

@@ -23,16 +23,6 @@ vi.mock("../navigationHistory", () => ({ canNavigateHistory: () => true, navigat
 const terminalFixture = vi.hoisted(() => ({
   sessions: [] as Array<{ target: { terminalId: string }; state: { summary: unknown } }>,
 }));
-// The real panel attaches a terminal session; the drawer only needs a node that stays mounted.
-vi.mock("./RightPanelTerminalBody", () => ({
-  RightPanelTerminalBody: (props: { surface: { id: string }; visible: boolean }) => (
-    <div
-      data-terminal-owner="right-panel"
-      data-terminal-surface={props.surface.id}
-      data-visible={props.visible}
-    />
-  ),
-}));
 vi.mock("~/state/terminalSessions", () => ({
   useKnownTerminalSessions: () => terminalFixture.sessions,
 }));
@@ -331,6 +321,13 @@ const TERMINAL_SURFACE: TerminalPanelSurface = {
   activeTerminalId: "vitest",
 };
 
+// The real host carries a thread's attached terminals; the drawer only moves the element.
+const TERMINAL_HOST = (() => {
+  const element = document.createElement("div");
+  element.innerHTML = '<div data-terminal-owner="right-panel"></div>';
+  return { threadRef: THREAD_REF, element, park: () => element.remove() };
+})();
+
 function drawerProps(
   overrides: Partial<RightPanelTerminalDrawerProps> = {},
 ): RightPanelTerminalDrawerProps {
@@ -344,16 +341,7 @@ function drawerProps(
     maximized: false,
     terminalAvailable: true,
     terminalLabelsById: new Map([["vitest", "vitest"]]),
-    terminal: {
-      launchContext: null,
-      keybindings: [],
-      onAddTerminalContext: noop,
-      onSplitTerminal: noop,
-      onSplitTerminalVertical: noop,
-      onNewTerminal: noop,
-      onActiveTerminalChange: noop,
-      onCloseTerminal: noop,
-    },
+    bodyHost: TERMINAL_HOST,
     onToggleOpen: noop,
     onHeightCommit: noop,
     onToggleMaximized: noop,

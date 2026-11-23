@@ -177,6 +177,29 @@ export function terminalSurfaceMount(input: {
   return input.serverIds === null ? { kind: "pending" } : { kind: "ended" };
 }
 
+const MAX_HIDDEN_MOUNTED_TERMINAL_THREADS = 10;
+
+/**
+ * Threads whose drawer terminals stay mounted, least recently shown first: the active thread
+ * once its drawer has shown, and other threads whose panel is still open, so switching back
+ * does not re-attach and replay history.
+ */
+export function reconcileMountedTerminalThreads(input: {
+  current: readonly string[];
+  panelOpen: ReadonlySet<string>;
+  active: string | null;
+  activeShowing: boolean;
+  maxHidden?: number;
+}): string[] {
+  const kept = input.current.filter(
+    (key) => input.panelOpen.has(key) && !(key === input.active && input.activeShowing),
+  );
+  if (input.active !== null && input.activeShowing) kept.push(input.active);
+  const maxHidden = input.maxHidden ?? MAX_HIDDEN_MOUNTED_TERMINAL_THREADS;
+  let excess = kept.filter((key) => key !== input.active).length - maxHidden;
+  return kept.filter((key) => key === input.active || excess-- <= 0);
+}
+
 export type TerminalDrawerStatus = "running" | "ok" | "failed";
 
 export function terminalDrawerStatus(summary: TerminalSummary | null): TerminalDrawerStatus | null {

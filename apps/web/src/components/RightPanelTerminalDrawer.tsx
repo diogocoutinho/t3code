@@ -9,7 +9,7 @@ import {
   Plus,
   TerminalSquare,
 } from "lucide-react";
-import { memo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { memo, useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
 
 import { Button } from "~/components/ui/button";
 import { PanelTabCloseButton } from "~/components/ui/panel-tab-close-button";
@@ -19,8 +19,7 @@ import { workspaceAreaProps } from "~/lib/workspaceFocus";
 import type { RightPanelSurface, TerminalPanelSurface } from "~/rightPanelStore";
 import { useKnownTerminalSessions } from "~/state/terminalSessions";
 
-import type { RightPanelTerminalProps } from "./chat/RightPanelSurfaceContent";
-import { RightPanelTerminalBody } from "./RightPanelTerminalBody";
+import type { TerminalBodyHost } from "./RightPanelTerminalBodies";
 import {
   clampTerminalDrawerHeight,
   TERMINAL_DRAWER_COLLAPSED_HEIGHT,
@@ -38,7 +37,8 @@ export interface RightPanelTerminalDrawerProps {
   maximized: boolean;
   terminalAvailable: boolean;
   terminalLabelsById: ReadonlyMap<string, string>;
-  terminal: RightPanelTerminalProps;
+  /** The thread's terminals, rendered elsewhere so they outlive this drawer. */
+  bodyHost: TerminalBodyHost | null;
   onToggleOpen: () => void;
   onHeightCommit: (height: number) => void;
   onToggleMaximized: () => void;
@@ -102,9 +102,17 @@ export const RightPanelTerminalDrawer = memo(function RightPanelTerminalDrawer(
     containerHeight: number;
     height: number;
   } | null>(null);
-  // The body attaches its terminal on mount, so it waits for the first open in this thread.
-  const [bodyMounted, setBodyMounted] = useState(props.open);
-  if (props.open && !bodyMounted) setBodyMounted(true);
+  const bodySlotRef = useRef<HTMLDivElement>(null);
+  const { bodyHost } = props;
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- moves the thread's terminal host element into this drawer and back out, so the terminals never remount
+  useLayoutEffect(() => {
+    const slot = bodySlotRef.current;
+    if (!slot || !bodyHost) return;
+    slot.appendChild(bodyHost.element);
+    return () => {
+      if (bodyHost.element.parentElement === slot) bodyHost.park();
+    };
+  }, [bodyHost]);
 
   const activeSurface =
     props.surfaces.find((surface) => surface.id === props.activeSurfaceId) ??
@@ -146,16 +154,6 @@ export const RightPanelTerminalDrawer = memo(function RightPanelTerminalDrawer(
   };
 
   const terminalArea = props.open ? workspaceAreaProps("terminal", 5, gt("Terminal")) : {};
-  const body =
-    bodyMounted && activeSurface ? (
-      <RightPanelTerminalBody
-        key={activeSurface.id}
-        visible={props.open}
-        threadRef={props.threadRef}
-        surface={activeSurface}
-        terminal={props.terminal}
-      />
-    ) : null;
 
   return (
     <div
@@ -270,9 +268,11 @@ export const RightPanelTerminalDrawer = memo(function RightPanelTerminalDrawer(
         className={cn("flex min-h-0 flex-1 flex-col", !props.open && "hidden")}
         data-right-panel-terminal-body
       >
-        {activeSurface ? (
-          body
-        ) : props.open ? (
+        <div
+          ref={bodySlotRef}
+          className={cn("flex min-h-0 flex-1 flex-col", !activeSurface && "hidden")}
+        />
+        {activeSurface ? null : props.open ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center text-sm text-muted-foreground">
             <p>
               <T>No terminal</T>

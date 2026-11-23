@@ -51,7 +51,10 @@ import { recallCheckoutIsRepo, rememberCheckoutIsRepo } from "./ChatView.logic";
 import { useLogicalProjectEnvironments } from "../hooks/useLogicalProjectEnvironments";
 import { useStableCallback } from "../hooks/useStableCallback";
 import { useProjectScriptEditing } from "./chat/useProjectScriptEditing";
-import { RightPanelSurfaceContent } from "./chat/RightPanelSurfaceContent";
+import {
+  RightPanelSurfaceContent,
+  type RightPanelTerminalProps,
+} from "./chat/RightPanelSurfaceContent";
 import { usePendingThreadRequests } from "./chat/usePendingThreadRequests";
 import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 import { visibleThreadPullRequests } from "@t3tools/shared/threadPullRequests";
@@ -188,6 +191,7 @@ import {
   useRightPanelStore,
 } from "../rightPanelStore";
 import type { RightPanelTerminalDrawerProps } from "./RightPanelTerminalDrawer";
+import { createTerminalBodyHosts, RightPanelTerminalBodies } from "./RightPanelTerminalBodies";
 import { isPreviewSupportedInRuntime, useThreadPreviewState } from "../previewStateStore";
 import { previewRuntimeTabId } from "../browser/previewRuntimeTabId";
 import {
@@ -1129,6 +1133,7 @@ export default function ChatView(props: ChatViewProps) {
   );
   const terminalDrawerPreference = useRightPanelStore((state) => state.terminalDrawer);
   const terminalDrawerMaximized = useRightPanelStore((state) => state.terminalDrawerMaximized);
+  const [terminalBodyHosts] = useState(createTerminalBodyHosts);
   const unseenRightPanelGroups = useRightPanelStore(
     useShallow((state) => selectRightPanelUnseenGroups(state, activeThreadRef)),
   );
@@ -3444,6 +3449,20 @@ export default function ChatView(props: ChatViewProps) {
       }}
     />
   ) : null;
+  const rightPanelTerminalProps: RightPanelTerminalProps = {
+    launchContext: activeTerminalLaunchContext ?? null,
+    keybindings,
+    onAddTerminalContext: addTerminalContextToDraftStable,
+    onSplitTerminal: splitPanelTerminalStable,
+    onSplitTerminalVertical: splitPanelTerminalVerticalStable,
+    onNewTerminal: addTerminalSurfaceStable,
+    onActiveTerminalChange: activatePanelTerminalStable,
+    onCloseTerminal: closePanelTerminalStable,
+    splitShortcutLabel: splitTerminalShortcutLabel ?? undefined,
+    splitVerticalShortcutLabel: splitTerminalVerticalShortcutLabel ?? undefined,
+    newShortcutLabel: newTerminalShortcutLabel ?? undefined,
+    closeShortcutLabel: closeTerminalShortcutLabel ?? undefined,
+  };
   const rightPanelTerminalDrawer: RightPanelTerminalDrawerProps | null = activeThreadRef
     ? {
         threadRef: activeThreadRef,
@@ -3456,20 +3475,7 @@ export default function ChatView(props: ChatViewProps) {
         maximized: terminalDrawerMaximized,
         terminalAvailable: activeProject !== null && canOperateTerminal,
         terminalLabelsById: activeTerminalLabelsById,
-        terminal: {
-          launchContext: activeTerminalLaunchContext ?? null,
-          keybindings,
-          onAddTerminalContext: addTerminalContextToDraftStable,
-          onSplitTerminal: splitPanelTerminalStable,
-          onSplitTerminalVertical: splitPanelTerminalVerticalStable,
-          onNewTerminal: addTerminalSurfaceStable,
-          onActiveTerminalChange: activatePanelTerminalStable,
-          onCloseTerminal: closePanelTerminalStable,
-          splitShortcutLabel: splitTerminalShortcutLabel ?? undefined,
-          splitVerticalShortcutLabel: splitTerminalVerticalShortcutLabel ?? undefined,
-          newShortcutLabel: newTerminalShortcutLabel ?? undefined,
-          closeShortcutLabel: closeTerminalShortcutLabel ?? undefined,
-        },
+        bodyHost: activeThreadKey === null ? null : terminalBodyHosts.host(activeThreadKey),
         onToggleOpen: toggleRightPanelTerminalDrawerStable,
         onHeightCommit: setRightPanelTerminalDrawerHeight,
         onToggleMaximized: toggleRightPanelTerminalDrawerMaximized,
@@ -4200,6 +4206,14 @@ export default function ChatView(props: ChatViewProps) {
         </div>
       </div>
 
+      {embedded ? null : (
+        <RightPanelTerminalBodies
+          hosts={terminalBodyHosts}
+          activeThreadKey={activeThreadKey}
+          drawerVisible={terminalDrawerVisible}
+          terminal={rightPanelTerminalProps}
+        />
+      )}
       {rightPanelPresent && activeThreadRef && !embedded ? (
         <ChatRightPanel
           sheet={shouldUsePlanSidebarSheet}
