@@ -26,7 +26,6 @@ import { previewEnvironment } from "../state/preview";
 import { readEnvironmentScope, useEnvironmentScope } from "../state/session";
 import { threadEnvironment } from "../state/threads";
 import { useAtomCommand } from "../state/use-atom-command";
-import { useTerminalUiStateStore } from "../terminalUiStateStore";
 import { useStableCallback } from "./useStableCallback";
 
 /**
@@ -46,7 +45,6 @@ export function useRightPanelSurfaceClose(input: {
   );
   const previewState = useThreadPreviewState(threadRef);
   const terminalActions = useThreadTerminalActions(threadRef);
-  const storeCloseTerminal = useTerminalUiStateStore((state) => state.closeTerminal);
   const surfaces = useRightPanelStore(
     (state) => selectThreadRightPanelState(state.byThreadKey, threadRef).surfaces,
   );
@@ -66,7 +64,6 @@ export function useRightPanelSurfaceClose(input: {
       readEnvironmentScope(ref.environmentId, AuthTerminalOperateScope)
     ) {
       for (const terminalId of surface.terminalIds) {
-        storeCloseTerminal(ref, terminalId);
         terminalActions.closeTerminalSession(terminalId, ref);
       }
     }

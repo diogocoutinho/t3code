@@ -7,16 +7,15 @@ import {
   selectThreadRightPanelState,
   useRightPanelStore,
 } from "../rightPanelStore";
-import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
 
-export type TerminalFocusOwner = "drawer" | "right-panel";
+export type TerminalFocusOwner = "right-panel";
 
 export function getTerminalFocusOwner(): TerminalFocusOwner | null {
   const activeElement = document.activeElement;
   if (!(activeElement instanceof HTMLElement)) return null;
   if (!activeElement.isConnected) return null;
   const owner = activeElement.closest<HTMLElement>("[data-terminal-owner]")?.dataset.terminalOwner;
-  if (owner === "drawer" || owner === "right-panel") return owner;
+  if (owner === "right-panel") return owner;
   return null;
 }
 
@@ -84,23 +83,15 @@ export function focusTerminal(threadRef: ScopedThreadRef, terminalId: string): v
 
 /**
  * Focuses the drawer terminal the store now marks active, after an open, close
- * or switch. A thread whose drawer ended up closed drops its waiting request.
+ * or switch. A thread whose drawer ended up hidden drops its waiting request.
  */
-export function focusActiveDrawerTerminal(threadRef: ScopedThreadRef): void {
-  const { terminalOpen, activeTerminalId } = selectThreadTerminalUiState(
-    useTerminalUiStateStore.getState().terminalUiStateByThreadKey,
-    threadRef,
-  );
-  if (terminalOpen && activeTerminalId) focusTerminal(threadRef, activeTerminalId);
-  else cancelTerminalFocus(threadRef);
-}
-
-/** Focuses the active terminal of the right panel's drawer while the drawer shows. */
 export function focusActivePanelTerminal(threadRef: ScopedThreadRef): void {
   const state = useRightPanelStore.getState();
-  if (!selectTerminalDrawerVisible(state, threadRef)) return;
-  const surface = selectActiveTerminalSurface(state.byThreadKey, threadRef);
+  const surface = selectTerminalDrawerVisible(state, threadRef)
+    ? selectActiveTerminalSurface(state.byThreadKey, threadRef)
+    : null;
   if (surface) focusTerminal(threadRef, surface.activeTerminalId);
+  else cancelTerminalFocus(threadRef);
 }
 
 /**
@@ -162,28 +153,14 @@ export function restoreFocusOnThreadEnter(
   };
   content.root.ownerDocument.addEventListener("focusin", remember);
   if (!requestedByHandler) {
-    const drawer = selectThreadTerminalUiState(
-      useTerminalUiStateStore.getState().terminalUiStateByThreadKey,
-      threadRef,
-    );
     const panels = useRightPanelStore.getState();
     const panelTerminal = selectTerminalDrawerVisible(panels, threadRef)
       ? selectActiveTerminalSurface(panels.byThreadKey, threadRef)
       : null;
     if (previous === "composer") {
       content.focusComposer();
-    } else if (
-      previous &&
-      ((drawer.terminalOpen &&
-        drawer.terminalGroups
-          .find((group) => group.id === drawer.activeTerminalGroupId)
-          ?.terminalIds.includes(previous.terminalId)) ||
-        (panelTerminal?.kind === "terminal" &&
-          panelTerminal.terminalIds.includes(previous.terminalId)))
-    ) {
+    } else if (previous && panelTerminal?.terminalIds.includes(previous.terminalId)) {
       focusTerminal(threadRef, previous.terminalId);
-    } else if (drawer.terminalOpen && drawer.activeTerminalId) {
-      focusTerminal(threadRef, drawer.activeTerminalId);
     } else content.focusComposer();
   }
   if (requestedByHandler) remember();

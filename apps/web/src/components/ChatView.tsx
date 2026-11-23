@@ -182,6 +182,7 @@ import {
   selectActiveRightPanelSurface,
   selectThreadPanelOpen,
   selectRightPanelUnseenGroups,
+  selectTerminalDrawerVisible,
   selectThreadRightPanelState,
   type TerminalPanelSurface,
   useRightPanelStore,
@@ -258,8 +259,12 @@ import {
 } from "../composerDraftStore";
 import { type TerminalContextDraft } from "../lib/terminalContext";
 import { collectInlineContextIds } from "../lib/composerContextReferences";
-import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
-import { useKnownTerminalSessions, useThreadRunningTerminalIds } from "../state/terminalSessions";
+import {
+  useKnownTerminalSessions,
+  useTerminalDrawerSessions,
+  useThreadRunningTerminalIds,
+} from "../state/terminalSessions";
+import { closingTerminalIds } from "./terminal/closingTerminals";
 import { useEnvironmentQueryRefresh } from "../state/query";
 import { useEnvironmentScope } from "~/state/session";
 import { primaryServerKeybindingsAtom, serverEnvironment } from "../state/server";
@@ -389,7 +394,6 @@ import { useOrchestrationCommand } from "../state/use-orchestration-command";
 import { useAtomQueryRunner } from "../state/use-atom-query-runner";
 import { observeResize } from "~/lib/observeResize";
 import { ThreadVisitWatermark } from "./chat/ThreadVisitWatermark";
-import { ChatTerminalDrawers } from "./chat/ChatTerminalDrawers";
 import { ChatRightPanel } from "./chat/ChatRightPanel";
 import {
   changesNovel,
@@ -794,8 +798,8 @@ export default function ChatView(props: ChatViewProps) {
   const setMultipleModelSelectionsStable = useStableCallback(setMultipleModelSelections);
   const feedbackUploadsInFlightRef = useRef(new Set<string>());
 
-  const terminalUiState = useTerminalUiStateStore((state) =>
-    selectThreadTerminalUiState(state.terminalUiStateByThreadKey, routeThreadRef),
+  const terminalDrawerVisible = useRightPanelStore((state) =>
+    selectTerminalDrawerVisible(state, routeThreadRef),
   );
 
   const fallbackDraftProjectRef = draftThread
@@ -1878,7 +1882,7 @@ export default function ChatView(props: ChatViewProps) {
   const terminalShortcutLabelOptions = {
     context: {
       terminalFocus: true,
-      terminalOpen: Boolean(terminalUiState.terminalOpen),
+      terminalOpen: terminalDrawerVisible,
     },
   };
   const splitTerminalShortcutLabel = shortcutLabelForCommand(
@@ -2007,12 +2011,11 @@ export default function ChatView(props: ChatViewProps) {
     runShellCommandStable,
     splitPanelTerminalStable,
     splitPanelTerminalVerticalStable,
-    toggleTerminalVisibilityStable,
+    toggleTerminalDrawerStable,
     shortcuts: terminalShortcuts,
   } = useChatTerminalActions({
     environmentId,
     composerRef,
-    terminalUiState,
     activeThread,
     activeThreadId,
     activeThreadRef,
@@ -2146,12 +2149,37 @@ export default function ChatView(props: ChatViewProps) {
     terminalLabelsById: activeTerminalLabelsById,
   });
   const closeRightPanelSurfaceStable = closeRightPanelSurface;
+  const terminalSessionList = useTerminalDrawerSessions(environmentId, threadId);
+  const terminalServerIds = terminalSessionList?.sessions.map(
+    (session) => session.target.terminalId,
+  );
+  const terminalServerIdsKey = terminalServerIds?.join("\n");
+  const terminalSnapshotId = terminalSessionList?.snapshotId;
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- feeds the server's terminal list into the right panel store, which adopts terminals no surface owns
+  useEffect(() => {
+    if (embedded || terminalServerIdsKey === undefined) return;
+    const ref = scopeThreadRef(environmentId, threadId);
+    useRightPanelStore
+      .getState()
+      .reconcileTerminalSurfaces(
+        ref,
+        terminalServerIdsKey === "" ? [] : terminalServerIdsKey.split("\n"),
+        terminalSnapshotId,
+        closingTerminalIds(ref),
+      );
+  }, [embedded, environmentId, terminalServerIdsKey, terminalSnapshotId, threadId]);
+  // Collapsing never launches; opening goes through terminal.toggle's open path.
   const toggleRightPanelTerminalDrawerStable = useStableCallback(() => {
     if (!activeThreadRef) return;
     const store = useRightPanelStore.getState();
-    const open = !store.terminalDrawer.open;
-    store.setTerminalDrawerOpen(activeThreadRef, open);
-    if (open) focusActivePanelTerminal(activeThreadRef);
+    if (
+      store.terminalDrawer.open &&
+      selectThreadRightPanelState(store.byThreadKey, activeThreadRef).isOpen
+    ) {
+      store.setTerminalDrawerOpen(activeThreadRef, false);
+      return;
+    }
+    toggleTerminalDrawerStable();
   });
   const activateRightPanelTerminalSurfaceStable = useStableCallback((surfaceId: string) => {
     if (!activeThreadRef) return;
@@ -2264,7 +2292,7 @@ export default function ChatView(props: ChatViewProps) {
     activeThreadRef,
     workspaceLayoutElement,
     !embedded,
-    terminalUiState.terminalOpen,
+    terminalDrawerVisible,
     isCoarsePointer ? ignoreComposerFocus : focusComposerStable,
   );
 
@@ -2273,7 +2301,7 @@ export default function ChatView(props: ChatViewProps) {
     if (
       embedded ||
       !activeThread?.id ||
-      terminalUiState.terminalOpen ||
+      terminalDrawerVisible ||
       isMobileViewport ||
       isCoarsePointer
     ) {
@@ -2307,7 +2335,7 @@ export default function ChatView(props: ChatViewProps) {
     focusComposerStable,
     isCoarsePointer,
     isMobileViewport,
-    terminalUiState.terminalOpen,
+    terminalDrawerVisible,
   ]);
 
   // Promotion drops draftId while a send may still be dispatching, so key by thread.
@@ -2819,7 +2847,7 @@ export default function ChatView(props: ChatViewProps) {
   if (
     terminalUiLaunchContext !== null &&
     (terminalUiLaunchContext.threadId !== activeThreadId ||
-      !terminalUiState.terminalOpen ||
+      !terminalDrawerVisible ||
       (activeProjectCwd !== null &&
         projectScriptCwd({
           project: { cwd: activeProjectCwd },
@@ -2832,7 +2860,7 @@ export default function ChatView(props: ChatViewProps) {
 
   const getShortcutContext = (eventTarget: EventTarget | null = document.activeElement) => ({
     terminalFocus: getTerminalFocusOwner() !== null,
-    terminalOpen: Boolean(terminalUiState.terminalOpen),
+    terminalOpen: terminalDrawerVisible,
     previewFocus: isPreviewFocused(),
     previewOpen: previewPanelOpen,
     rightPanelOpen,
@@ -3480,7 +3508,7 @@ export default function ChatView(props: ChatViewProps) {
   };
   const panelToggleControlProps = {
     terminalAvailable: activeProject !== null,
-    terminalOpen: terminalUiState.terminalOpen,
+    terminalOpen: terminalDrawerVisible,
     terminalShortcutLabel: shortcutLabelForCommand(keybindings, "terminal.toggle"),
     threadPanelOpen,
     threadPanelPresentation,
@@ -3489,7 +3517,7 @@ export default function ChatView(props: ChatViewProps) {
     rightPanelAvailable: activeProject !== null,
     rightPanelOpen,
     rightPanelShortcutLabel: shortcutLabelForCommand(keybindings, "rightPanel.toggle"),
-    onToggleTerminal: toggleTerminalVisibilityStable,
+    onToggleTerminal: toggleTerminalDrawerStable,
     onToggleThreadPanel: toggleThreadPanelStable,
     onToggleRightPanel: toggleRightPanelStable,
   } satisfies PanelLayoutControlsProps;
@@ -3926,7 +3954,7 @@ export default function ChatView(props: ChatViewProps) {
                                 settings={settings}
                                 keybindings={keybindings}
                                 getShortcutContext={getShortcutContextStable}
-                                terminalOpen={Boolean(terminalUiState.terminalOpen)}
+                                terminalOpen={terminalDrawerVisible}
                                 gitCwd={gitCwd}
                                 pullRequestProjectId={
                                   supportsPullRequests ? (activeProject?.id ?? null) : null
@@ -3984,7 +4012,7 @@ export default function ChatView(props: ChatViewProps) {
                         </ComposerSurface.Host>
                         <div className="min-h-0">
                           <div
-                            data-terminal-open={terminalUiState.terminalOpen ? "true" : undefined}
+                            data-terminal-open={terminalDrawerVisible ? "true" : undefined}
                             className="relative z-0"
                           >
                             {showComposerContextStrip && (
@@ -4170,21 +4198,6 @@ export default function ChatView(props: ChatViewProps) {
             )}
           </ThreadFindCanvas>
         </div>
-
-        {embedded ? null : (
-          <ChatTerminalDrawers
-            activeThreadKey={activeThreadKey}
-            activeTerminalOpen={Boolean(terminalUiState.terminalOpen)}
-            composerHeight={composerReservedHeight}
-            launchContext={activeTerminalLaunchContext ?? null}
-            splitShortcutLabel={splitTerminalShortcutLabel ?? undefined}
-            splitVerticalShortcutLabel={splitTerminalVerticalShortcutLabel ?? undefined}
-            newShortcutLabel={newTerminalShortcutLabel ?? undefined}
-            closeShortcutLabel={closeTerminalShortcutLabel ?? undefined}
-            keybindings={keybindings}
-            onAddTerminalContext={addTerminalContextToDraftStable}
-          />
-        )}
       </div>
 
       {rightPanelPresent && activeThreadRef && !embedded ? (

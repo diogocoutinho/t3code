@@ -1,0 +1,186 @@
+import { createMemoryHistory } from "@tanstack/react-router";
+import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { WS_METHODS } from "@t3tools/contracts";
+import { DEFAULT_CLIENT_SETTINGS } from "@t3tools/contracts/settings";
+import {
+  compileResolvedKeybindingsConfig,
+  mergeWithDefaultKeybindings,
+} from "@t3tools/shared/keybindings";
+import type * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
+import { expect, it, vi } from "vite-plus/test";
+import { page, userEvent } from "vite-plus/test/browser";
+
+import { AppRoot } from "~/AppRoot";
+// The route loads ChatView lazily; importing it here keeps its first transform out of the timeout.
+import "~/components/ChatView";
+import { __setClientSettingsForTests } from "~/hooks/useSettings";
+import {
+  selectRightPanelUnseenGroups,
+  selectThreadRightPanelState,
+  useRightPanelStore,
+} from "~/rightPanelStore";
+import { getRouter } from "~/router";
+import {
+  ENVIRONMENT_ID,
+  answerRpc,
+  emitTerminalMetadata,
+  installFakeEnvironment,
+  threadWithHistory,
+  type FakeDriver,
+} from "../../test/fakeEnvironment";
+import { act, render } from "../../test/render";
+
+// The socket is the only fake layer; see test/appScenarios.renders.tsx.
+vi.mock("../../../../packages/client-runtime/src/connection/driver.ts", async (importOriginal) => {
+  const [actual, { fakeDriver }, Layer] = await Promise.all([
+    importOriginal<{ readonly ConnectionDriver: Context.Key<unknown, FakeDriver> }>(),
+    import("../../test/fakeEnvironment"),
+    import("effect/Layer"),
+  ]);
+  return { ...actual, layer: Layer.succeed(actual.ConnectionDriver, fakeDriver) };
+});
+
+vi.mock(import("~/rpc/requestLatencyState"), async (original) => ({
+  ...(await original()),
+  trackRpcRequestSent: () => {},
+}));
+
+// Its own file: the launch test needs the first environment of the module, whose thread shell
+// (which resolves the terminal's project) later environments do not refresh.
+function resetRightPanelDrawer() {
+  useRightPanelStore.setState({
+    byThreadKey: {},
+    terminalDrawer: { open: false, height: 280 },
+    unseenGroupsByThreadKey: {},
+    terminalServerObservationByThreadKey: {},
+  });
+}
+
+function terminalRpcs() {
+  const opened: string[] = [];
+  const closed: string[] = [];
+  const open = answerRpc(WS_METHODS.terminalOpen, (input: { terminalId: string }) => {
+    opened.push(input.terminalId);
+    return Effect.never;
+  });
+  const close = answerRpc(WS_METHODS.terminalClose, (input: { terminalId: string }) => {
+    closed.push(input.terminalId);
+    return Effect.void;
+  });
+  return {
+    opened,
+    closed,
+    [Symbol.dispose]() {
+      open[Symbol.dispose]();
+      close[Symbol.dispose]();
+    },
+  };
+}
+
+async function renderThreadApp(threads: Parameters<typeof installFakeEnvironment>[0]) {
+  await using stack = new AsyncDisposableStack();
+  await page.viewport(1280, 800);
+  stack.use(
+    installFakeEnvironment(threads, {
+      keybindings: mergeWithDefaultKeybindings(
+        compileResolvedKeybindingsConfig([{ key: "ctrl+j", command: "terminal.toggle" }]),
+      ),
+    }),
+  );
+  __setClientSettingsForTests({
+    ...DEFAULT_CLIENT_SETTINGS,
+    onboardingCompletedAt: "2026-01-01T00:00:00.000Z",
+  });
+  const router = getRouter(
+    createMemoryHistory({ initialEntries: [`/${ENVIRONMENT_ID}/${threads[0]!.id}`] }),
+  );
+  await router.load();
+  // AppRoot brings its own router.
+  stack.use(await render(<AppRoot router={router} />, { router: false }));
+  const moved = stack.move();
+  return { router, [Symbol.asyncDispose]: () => moved.disposeAsync() };
+}
+
+it("terminal.toggle with the panel closed opens the panel with the drawer and launches one terminal only when the thread has none", async () => {
+  resetRightPanelDrawer();
+  const thread = threadWithHistory("thread-terminal-toggle", 1);
+  using rpcs = terminalRpcs();
+  await using _app = await renderThreadApp([thread]);
+  const ref = scopeThreadRef(ENVIRONMENT_ID, thread.id);
+  const composer = page.getByTestId("composer-editor");
+
+  await composer.click();
+  await userEvent.keyboard("{Control>}j{/Control}");
+  await vi.waitFor(() => expect(useRightPanelStore.getState().terminalDrawer.open).toBe(true));
+  await vi.waitFor(() => expect(rpcs.opened).toHaveLength(1));
+  const opened = useRightPanelStore.getState();
+  expect(selectThreadRightPanelState(opened.byThreadKey, ref).isOpen).toBe(true);
+  expect(opened.terminalDrawer.open).toBe(true);
+  await expect.element(page.getByRole("button", { name: "Collapse terminal" })).toBeVisible();
+
+  await composer.click();
+  await userEvent.keyboard("{Control>}j{/Control}");
+  await vi.waitFor(() => expect(useRightPanelStore.getState().terminalDrawer.open).toBe(false));
+  expect(rpcs.opened).toHaveLength(1);
+  expect(rpcs.closed).toEqual([]);
+});
+
+it("terminals from the old chat drawer appear as drawer sub-tabs without closing any session", async () => {
+  resetRightPanelDrawer();
+  const thread = threadWithHistory("thread-terminal-adopt", 1);
+  using rpcs = terminalRpcs();
+  await using _app = await renderThreadApp([thread]);
+  const ref = scopeThreadRef(ENVIRONMENT_ID, thread.id);
+  const summary = (terminalId: string) => ({
+    threadId: thread.id,
+    terminalId,
+    cwd: "/workspace",
+    worktreePath: null,
+    status: "running" as const,
+    pid: 10,
+    exitCode: null,
+    exitSignal: null,
+    hasRunningSubprocess: false,
+    label: "",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  });
+  await vi.waitFor(() =>
+    emitTerminalMetadata({ type: "snapshot", terminals: [summary("default"), summary("term-2")] }),
+  );
+
+  await vi.waitFor(() =>
+    expect(
+      selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, ref).surfaces.map(
+        (surface) => surface.id,
+      ),
+    ).toEqual(["terminal:default", "terminal:term-2"]),
+  );
+  const state = useRightPanelStore.getState();
+  expect(state.terminalDrawer.open).toBe(false);
+  expect(selectRightPanelUnseenGroups(state, ref)).toContain("terminal");
+  expect(rpcs.closed).toEqual([]);
+  expect(rpcs.opened).toEqual([]);
+
+  // terminal.toggle reuses the adopted sessions instead of launching a new shell.
+  await page.getByTestId("composer-editor").click();
+  await userEvent.keyboard("{Control>}j{/Control}");
+  await vi.waitFor(() => expect(useRightPanelStore.getState().terminalDrawer.open).toBe(true));
+  expect(rpcs.opened).toEqual([]);
+});
+
+it("switching to a thread with no terminals while the drawer is open launches nothing", async () => {
+  resetRightPanelDrawer();
+  const first = threadWithHistory("thread-terminal-first", 1);
+  const second = threadWithHistory("thread-terminal-second", 1);
+  const firstRef = scopeThreadRef(ENVIRONMENT_ID, first.id);
+  useRightPanelStore.getState().openTerminal(firstRef, "existing");
+  using rpcs = terminalRpcs();
+  await using app = await renderThreadApp([first, second]);
+
+  await act(() => app.router.navigate({ to: `/${ENVIRONMENT_ID}/${second.id}` }));
+  await expect.element(page.getByTestId("composer-editor")).toBeVisible();
+  expect(useRightPanelStore.getState().terminalDrawer.open).toBe(true);
+  expect(rpcs.opened).toEqual([]);
+  expect(rpcs.closed).toEqual([]);
+});

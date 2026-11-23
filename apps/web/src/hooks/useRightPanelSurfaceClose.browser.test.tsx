@@ -3,7 +3,6 @@ import { scopedThreadKey } from "@t3tools/client-runtime/environment";
 import { expect, it, vi } from "vite-plus/test";
 import { act, render } from "../../test/render";
 import { selectThreadRightPanelState, useRightPanelStore } from "../rightPanelStore";
-import { useTerminalUiStateStore } from "../terminalUiStateStore";
 import { useRightPanelSurfaceClose } from "./useRightPanelSurfaceClose";
 
 const fixture = vi.hoisted(() => ({
@@ -73,7 +72,6 @@ function setup(mode: "single" | "all") {
   fixture.sessions = new Map();
   fixture.failClose = false;
   useRightPanelStore.setState({ byThreadKey: {} });
-  useTerminalUiStateStore.setState({ terminalUiStateByThreadKey: {} });
   const original: ScopedThreadRef = {
     environmentId: EnvironmentId.make("environment-a"),
     threadId: ThreadId.make("thread-a"),

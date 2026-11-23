@@ -3,7 +3,6 @@ import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import { useRightPanelStore } from "../rightPanelStore";
-import { useTerminalUiStateStore } from "../terminalUiStateStore";
 
 import {
   consumePendingTerminalFocus,
@@ -101,8 +100,9 @@ function mountThread(threadId: string, environmentId = "env") {
       },
     };
   };
-  useTerminalUiStateStore.getState().ensureTerminal(ref, "drawer", { open: true, active: true });
-  useRightPanelStore.getState().openTerminal(ref, "panel");
+  // Both panes of one drawer sub-tab, so each counts as the drawer's active terminal.
+  useRightPanelStore.getState().openTerminal(ref, "drawer");
+  useRightPanelStore.getState().splitTerminal(ref, "terminal:drawer", "panel");
   return {
     ref,
     root,
@@ -178,9 +178,9 @@ describe("thread focus restoration", () => {
     const leave = thread.enter();
     thread.composer.focus();
     thread.drawerState.visible = false;
-    useTerminalUiStateStore.getState().setTerminalOpen(thread.ref, false);
+    useRightPanelStore.getState().setTerminalDrawerOpen(thread.ref, false);
     focusTerminal(thread.ref, "drawer");
-    useTerminalUiStateStore.getState().setTerminalOpen(thread.ref, true);
+    useRightPanelStore.getState().setTerminalDrawerOpen(thread.ref, true);
     leave();
     using _leave = { [Symbol.dispose]: thread.enter() };
     thread.drawerState.visible = true;
@@ -193,9 +193,10 @@ describe("thread focus restoration", () => {
     using thread = mountThread("closed-remembered");
     using drawer = thread.mountTerminal("drawer");
     const leave = thread.enter();
+    drawer.input.focus();
     expect(document.activeElement).toBe(drawer.input);
     leave();
-    useTerminalUiStateStore.getState().setTerminalOpen(thread.ref, false);
+    useRightPanelStore.getState().setTerminalDrawerOpen(thread.ref, false);
     thread.drawerState.visible = false;
     using _leave = { [Symbol.dispose]: thread.enter() };
 
