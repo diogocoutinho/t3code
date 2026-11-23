@@ -62,13 +62,8 @@ describe("right panel sections", () => {
     expect(rightPanelSectionTarget([files], "files", "terminal")).toBeNull();
   });
 
-  it("drops only the diff from the dynamic tabs", () => {
-    expect(rightPanelDynamicTabSurfaces(surfaces)).toEqual([
-      firstTerminal,
-      files,
-      secondTerminal,
-      browser,
-    ]);
+  it("drops the diff and terminals from the dynamic tabs", () => {
+    expect(rightPanelDynamicTabSurfaces(surfaces)).toEqual([files, browser]);
   });
 });
 

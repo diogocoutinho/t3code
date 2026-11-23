@@ -1,7 +1,7 @@
 import { msg, T, useGT, useMessages } from "gt-react";
 import { m, type MessageResolver } from "../i18n/messages";
 import { sourceControlClients } from "@t3tools/client-runtime/source-control-clients";
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { scopedThreadKey, scopeThreadRef } from "@t3tools/client-runtime/environment";
 import {
   threadRuntimeIsActive,
   type EnvironmentThreadShell,
@@ -122,6 +122,10 @@ import { resolvePullRequestState } from "./pullRequest/pullRequestPresentation";
 import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
 import { observeResize } from "~/lib/observeResize";
 import { surfaceShortcutKey } from "~/lib/surfaceShortcutKey";
+import {
+  RightPanelTerminalDrawer,
+  type RightPanelTerminalDrawerProps,
+} from "./RightPanelTerminalDrawer";
 
 export interface RightPanelTabsProps {
   mode: PreviewPanelMode;
@@ -151,7 +155,8 @@ export interface RightPanelTabsProps {
   ) => void;
   onCloseOtherSurfaces: (surface: RightPanelSurface) => void;
   onCloseSurfacesToRight: (surface: RightPanelSurface) => void;
-  onCloseAllSurfaces: () => void;
+  /** Closes the surfaces of `surface`'s group. */
+  onCloseAllSurfaces: (surface: RightPanelSurface) => void;
   onMoveSurface?: (surfaceId: string, toIndex: number) => void;
   onCopyFilePath: (relativePath: string) => void;
   onAddBrowser: () => void;
@@ -178,6 +183,8 @@ export interface RightPanelTabsProps {
   pullRequestStatusSeeds?: Readonly<Record<string, PullRequestTabStatusSeed>>;
   /** Files the latest turn changed, shown on the Changes tab. */
   changesCount?: number | null;
+  /** Absent on pages without a thread, such as the pull-request and issue lists. */
+  terminalDrawer?: RightPanelTerminalDrawerProps | null;
   children: ReactNode;
 }
 
@@ -1353,6 +1360,10 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
     },
   ] as const;
   const showSection = (section: RightPanelSection) => {
+    if (section === "terminal" && props.terminalDrawer) {
+      props.terminalDrawer.onToggleOpen();
+      return;
+    }
     const target = rightPanelSectionTarget(props.surfaces, props.activeSurfaceId, section);
     if (target) {
       props.onActivate(target);
@@ -1458,7 +1469,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
         props.onCloseSurfacesToRight(surface);
         break;
       case "close-all":
-        props.onCloseAllSurfaces();
+        props.onCloseAllSurfaces(surface);
         break;
       case null:
         break;
@@ -1591,7 +1602,11 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
                   label={messages(tab.label)}
                   icon={tab.icon}
                   count={tab.count}
-                  active={activeSection === tab.section}
+                  active={
+                    tab.section === "terminal" && props.terminalDrawer
+                      ? props.terminalDrawer.open
+                      : activeSection === tab.section
+                  }
                   available={tab.available}
                   disabledReason={tab.disabledReason}
                   ownsDesktopTitleBar={ownsDesktopTitleBar}
@@ -1786,7 +1801,13 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
           />
         ) : null}
       </div>
-      <div className="flex min-h-0 flex-1 flex-col" data-right-panel-surface-content>
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col",
+          props.terminalDrawer?.open && props.terminalDrawer.maximized && "hidden",
+        )}
+        data-right-panel-surface-content
+      >
         {props.activeSurfaceId === null ? (
           <RightPanelEmptyState
             onAddBrowser={props.onAddBrowser}
@@ -1813,6 +1834,12 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
           props.children
         )}
       </div>
+      {props.terminalDrawer ? (
+        <RightPanelTerminalDrawer
+          key={scopedThreadKey(props.terminalDrawer.threadRef)}
+          {...props.terminalDrawer}
+        />
+      ) : null}
     </PreviewPanelShell>
   );
 }

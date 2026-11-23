@@ -7,6 +7,7 @@ import {
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import { getTerminalLabel } from "@t3tools/shared/terminalLabelsCopy";
 import { agentControlledBrowserCloseConfirmation } from "../components/ChatView.logic";
+import { rightPanelGroupOf } from "../components/RightPanelTabs.logic";
 import { closePreviewSession } from "../components/preview/closePreviewSession";
 import { useThreadTerminalActions } from "../components/terminal/useThreadTerminalActions";
 import { m } from "../i18n/messages";
@@ -171,15 +172,21 @@ export function useRightPanelSurfaceClose(input: {
       },
     );
   });
+  // Bulk closes act on the clicked surface's group, so a tool's menu never ends a terminal.
+  const groupOf = (surface: RightPanelSurface) =>
+    surfaces.filter((entry) => rightPanelGroupOf(entry) === rightPanelGroupOf(surface));
   const closeOtherSurfaces = useStableCallback((surface: RightPanelSurface) =>
-    closeSurfaces(surfaces.filter((entry) => entry.id !== surface.id)),
+    closeSurfaces(groupOf(surface).filter((entry) => entry.id !== surface.id)),
   );
   const closeSurfacesToRight = useStableCallback((surface: RightPanelSurface) => {
-    const surfaceIndex = surfaces.findIndex((entry) => entry.id === surface.id);
+    const group = groupOf(surface);
+    const surfaceIndex = group.findIndex((entry) => entry.id === surface.id);
     if (surfaceIndex < 0) return;
-    closeSurfaces(surfaces.slice(surfaceIndex + 1));
+    closeSurfaces(group.slice(surfaceIndex + 1));
   });
-  const closeAllSurfaces = useStableCallback(() => closeSurfaces(surfaces));
+  const closeAllSurfaces = useStableCallback((surface: RightPanelSurface) =>
+    closeSurfaces(groupOf(surface)),
+  );
 
   return { closeSurface, closeOtherSurfaces, closeSurfacesToRight, closeAllSurfaces };
 }

@@ -27,8 +27,8 @@ import {
 } from "@t3tools/client-runtime/state/runtime";
 import { MAX_TERMINALS_PER_GROUP } from "../../types";
 import {
+  selectActiveTerminalSurface,
   selectThreadRightPanelState,
-  type RightPanelSurface,
   useRightPanelStore,
 } from "../../rightPanelStore";
 import { openUrlInPreview } from "../../browser/openFileInPreview";
@@ -72,7 +72,6 @@ interface ChatTerminalActionsInput {
   readonly activeThreadId: ThreadId | null;
   readonly activeThreadRef: ScopedThreadRef | null;
   readonly activeProject: EnvironmentProject | null;
-  readonly activeRightPanelSurface: RightPanelSurface | null;
   readonly runningTerminalIds: ReadonlyArray<string>;
   readonly activeServerOrderedTerminalIds: ReadonlyArray<string>;
   readonly activeTerminalLabelsById: ReadonlyMap<string, string>;
@@ -96,7 +95,6 @@ export function useChatTerminalActions(input: ChatTerminalActionsInput) {
     activeThreadId,
     activeThreadRef,
     activeProject,
-    activeRightPanelSurface,
     runningTerminalIds,
     activeServerOrderedTerminalIds,
     activeTerminalLabelsById,
@@ -347,15 +345,14 @@ export function useChatTerminalActions(input: ChatTerminalActionsInput) {
     void launched.result;
   };
   const addTerminalSurfaceStable = useStableCallback(addTerminalSurface);
+  const drawerTerminalSurface = () =>
+    selectActiveTerminalSurface(useRightPanelStore.getState().byThreadKey, activeThreadRef);
   const splitPanelTerminal = (direction: "horizontal" | "vertical" = "horizontal") => {
-    if (
-      !activeThreadRef ||
-      activeRightPanelSurface?.kind !== "terminal" ||
-      activeRightPanelSurface.terminalIds.length >= MAX_TERMINALS_PER_GROUP
-    ) {
+    const surface = drawerTerminalSurface();
+    if (!activeThreadRef || !surface || surface.terminalIds.length >= MAX_TERMINALS_PER_GROUP) {
       return;
     }
-    const surfaceId = activeRightPanelSurface.id;
+    const surfaceId = surface.id;
     const launched = terminalActions.launchTerminal({
       place: (terminalId) =>
         useRightPanelStore
@@ -372,10 +369,9 @@ export function useChatTerminalActions(input: ChatTerminalActionsInput) {
   };
   const splitPanelTerminalVerticalStable = useStableCallback(splitPanelTerminalVertical);
   const activatePanelTerminal = (terminalId: string) => {
-    if (!activeThreadRef || activeRightPanelSurface?.kind !== "terminal") return;
-    useRightPanelStore
-      .getState()
-      .activateTerminal(activeThreadRef, activeRightPanelSurface.id, terminalId);
+    const surface = drawerTerminalSurface();
+    if (!activeThreadRef || !surface) return;
+    useRightPanelStore.getState().activateTerminal(activeThreadRef, surface.id, terminalId);
     focusTerminal(activeThreadRef, terminalId);
   };
   const activatePanelTerminalStable = useStableCallback(activatePanelTerminal);
@@ -440,8 +436,9 @@ export function useChatTerminalActions(input: ChatTerminalActionsInput) {
     },
     "terminal.close": ({ terminalFocusOwner }) => {
       if (!hasTerminalWriteAccess()) return false;
-      if (terminalFocusOwner === "right-panel" && activeRightPanelSurface?.kind === "terminal") {
-        requestClosePanelTerminal(activeRightPanelSurface.activeTerminalId);
+      const panelSurface = drawerTerminalSurface();
+      if (terminalFocusOwner === "right-panel" && panelSurface) {
+        requestClosePanelTerminal(panelSurface.activeTerminalId);
         return;
       }
       if (terminalUiState.terminalOpen) requestCloseTerminal(terminalUiState.activeTerminalId);

@@ -38,11 +38,11 @@ export function rightPanelSectionTarget(
   return surfaces.findLast((surface) => surface.kind === kind) ?? null;
 }
 
-/** The Changes tab stands for the diff surface, so the diff gets no tab of its own. */
+/** The Changes tab stands for the diff, and terminals live in the drawer, so neither gets a tab. */
 export function rightPanelDynamicTabSurfaces(
   surfaces: readonly RightPanelSurface[],
 ): readonly RightPanelSurface[] {
-  return surfaces.filter((surface) => surface.kind !== "diff");
+  return surfaces.filter((surface) => surface.kind !== "diff" && surface.kind !== "terminal");
 }
 
 export function latestTurnChangedFileCount(
@@ -222,6 +222,7 @@ export function terminalDrawerStatus(summary: TerminalSummary | null): TerminalD
 }
 
 export const TERMINAL_DRAWER_MIN_HEIGHT = 120;
+export const TERMINAL_DRAWER_COLLAPSED_HEIGHT = 30;
 const TERMINAL_DRAWER_TOOL_RESERVE = 120;
 
 export function clampTerminalDrawerHeight(height: number, containerHeight: number): number {

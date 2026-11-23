@@ -1,18 +1,40 @@
 import "~/index.css";
 
-import { EnvironmentId } from "@t3tools/contracts";
+import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser";
 
 import { InputGroup, InputGroupAddon, InputGroupInput } from "~/components/ui/input-group";
-import type { RightPanelSurface } from "~/rightPanelStore";
+import type { RightPanelSurface, TerminalPanelSurface } from "~/rightPanelStore";
 import { render, stubGlobal } from "../../test/render";
 import { HistorySwipeNavigation } from "./HistorySwipeNavigation";
 import { RightPanelTabs, type RightPanelTabsProps } from "./RightPanelTabs";
+import {
+  RightPanelTerminalDrawer,
+  type RightPanelTerminalDrawerProps,
+} from "./RightPanelTerminalDrawer";
 import { subscribePreviewAction } from "./preview/previewActionBus";
 
 const navigateHistory = vi.hoisted(() => vi.fn());
 vi.mock("../navigationHistory", () => ({ canNavigateHistory: () => true, navigateHistory }));
+
+const terminalFixture = vi.hoisted(() => ({
+  sessions: [] as Array<{ target: { terminalId: string }; state: { summary: unknown } }>,
+}));
+// The real panel attaches a terminal session; the drawer only needs a node that stays mounted.
+vi.mock("./PersistentThreadTerminals", () => ({
+  PersistentThreadTerminalPanel: (props: { surface: { id: string }; visible: boolean }) => (
+    <div
+      data-terminal-owner="right-panel"
+      data-terminal-surface={props.surface.id}
+      data-visible={props.visible}
+    />
+  ),
+}));
+vi.mock("~/state/terminalSessions", () => ({
+  useKnownTerminalSessions: () => terminalFixture.sessions,
+}));
 
 // Chromium starts a gesture scroll, and Electron reports its begin, only for a
 // wheel event the page did not preventDefault; it then scrolls the latched scroller.
@@ -60,11 +82,9 @@ function trackpad() {
 }
 
 const surfaces: RightPanelSurface[] = Array.from({ length: 16 }, (_, index) => ({
-  id: `terminal:${index}`,
-  kind: "terminal",
+  id: `browser:${index}`,
+  kind: "preview",
   resourceId: `${index}`,
-  terminalIds: [`${index}`],
-  activeTerminalId: `${index}`,
 }));
 
 describe("RightPanelTabs", () => {
@@ -290,5 +310,140 @@ describe("device tab rename", () => {
     await userEvent.fill(input, "日本語");
     await userEvent.keyboard("{Enter}");
     expect(onRenameDevice).toHaveBeenCalledExactlyOnceWith(DEVICE_SURFACE.id, "日本語");
+  });
+});
+
+const THREAD_REF = scopeThreadRef(EnvironmentId.make("environment-local"), ThreadId.make("t"));
+const TERMINAL_SURFACE: TerminalPanelSurface = {
+  id: "terminal:vitest",
+  kind: "terminal",
+  resourceId: "vitest",
+  terminalIds: ["vitest"],
+  activeTerminalId: "vitest",
+};
+
+function drawerProps(
+  overrides: Partial<RightPanelTerminalDrawerProps> = {},
+): RightPanelTerminalDrawerProps {
+  const noop = () => {};
+  return {
+    threadRef: THREAD_REF,
+    surfaces: [TERMINAL_SURFACE],
+    activeSurfaceId: TERMINAL_SURFACE.id,
+    open: true,
+    height: 280,
+    maximized: false,
+    terminalAvailable: true,
+    terminalLabelsById: new Map([["vitest", "vitest"]]),
+    terminal: {
+      launchContext: null,
+      keybindings: [],
+      onAddTerminalContext: noop,
+      onSplitTerminal: noop,
+      onSplitTerminalVertical: noop,
+      onNewTerminal: noop,
+      onActiveTerminalChange: noop,
+      onCloseTerminal: noop,
+    },
+    onToggleOpen: noop,
+    onHeightCommit: noop,
+    onToggleMaximized: noop,
+    onActivateSurface: noop,
+    onCloseSurface: noop,
+    onNewTerminal: noop,
+    ...overrides,
+  };
+}
+
+function sizedContainer(height: number) {
+  const container = document.createElement("div");
+  container.style.cssText = `width: 480px; height: ${height}px; display: flex; flex-direction: column`;
+  return container;
+}
+
+describe("terminal drawer", () => {
+  it("collapsed line shows the active terminal's label and status and opens on click", async () => {
+    terminalFixture.sessions = [
+      {
+        target: { terminalId: "vitest" },
+        state: {
+          summary: {
+            status: "running",
+            exitCode: null,
+            hasRunningSubprocess: true,
+          },
+        },
+      },
+    ];
+    const onToggleOpen = vi.fn();
+    await using screen = await render(
+      <RightPanelTerminalDrawer {...drawerProps({ open: false, onToggleOpen })} />,
+    );
+    const line = screen.container.querySelector<HTMLElement>(
+      "[data-right-panel-terminal-collapsed]",
+    )!;
+    expect(line.textContent).toContain("vitest");
+    expect(line.querySelector("[data-terminal-drawer-status]")?.textContent).toBe("running");
+    await userEvent.click(line);
+    expect(onToggleOpen).toHaveBeenCalledOnce();
+  });
+
+  it("resizes by drag and commits the height once on release", async () => {
+    const onHeightCommit = vi.fn();
+    using _capture = vi
+      .spyOn(Element.prototype, "setPointerCapture")
+      .mockImplementation(() => undefined);
+    await using screen = await render(
+      <RightPanelTerminalDrawer {...drawerProps({ onHeightCommit })} />,
+      { container: sizedContainer(600) },
+    );
+    const handle = screen.container.querySelector<HTMLElement>(
+      "[data-right-panel-terminal-resize]",
+    )!;
+    const pointer = (type: string, clientY: number) =>
+      handle.dispatchEvent(
+        new PointerEvent(type, { bubbles: true, pointerId: 7, button: 0, clientY }),
+      );
+    pointer("pointerdown", 500);
+    pointer("pointermove", 400);
+    pointer("pointermove", 100);
+    pointer("pointerup", 100);
+    expect(onHeightCommit).toHaveBeenCalledExactlyOnceWith(480);
+  });
+
+  it("switching tools keeps the drawer's terminal mounted", async () => {
+    const tabs = (active: RightPanelSurface) => (
+      <RightPanelTabs
+        {...(panel(active).props as RightPanelTabsProps)}
+        terminalDrawer={drawerProps()}
+      />
+    );
+    await using screen = await render(tabs(DIFF_SURFACE));
+    const terminal = screen.container.querySelector('[data-terminal-owner="right-panel"]');
+    expect(terminal).not.toBeNull();
+    await screen.rerender(tabs(BROWSER_SURFACE));
+    expect(screen.container.querySelector('[data-terminal-owner="right-panel"]')).toBe(terminal);
+    expect(terminal!.isConnected).toBe(true);
+  });
+
+  it("maximize covers the tool and restore brings it back", async () => {
+    const onToggleMaximized = vi.fn();
+    const tabs = (maximized: boolean) => (
+      <RightPanelTabs
+        {...(panel(DIFF_SURFACE).props as RightPanelTabsProps)}
+        terminalDrawer={drawerProps({ maximized, onToggleMaximized })}
+      />
+    );
+    await using screen = await render(tabs(false));
+    const content = screen.getByTestId("surface-content");
+    await expect.element(content).toBeVisible();
+
+    await screen.rerender(tabs(true));
+    await expect.element(content).not.toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Restore terminal" }));
+    expect(onToggleMaximized).toHaveBeenCalledOnce();
+
+    await screen.rerender(tabs(false));
+    await expect.element(content).toBeVisible();
   });
 });
