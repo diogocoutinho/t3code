@@ -16,7 +16,7 @@ Os agentes usam as contas e assinaturas que você configurou no seu servidor (po
 
 **Ligação entre app e servidor.** Para o app encontrar seus servidores, o EasyDev Connect guarda quais servidores estão ligados à sua conta e os dados técnicos necessários para encaminhar a conexão. O conteúdo que passa por essa conexão não é guardado.
 
-**Notificações.** Se você ativar as notificações, guardamos o token de notificação do aparelho, um identificador do aparelho e suas preferências de notificação. Usamos esses dados só para avisar quando um agente termina ou precisa de você. As notificações são entregues pelo serviço de notificações da Apple (APNs) ou do Google, e o registro das entregas é mantido pelo tempo necessário para diagnosticar falhas.
+**Notificações.** Se você ativar as notificações, guardamos o token de notificação do aparelho, um identificador do aparelho e suas preferências de notificação. Usamos esses dados só para avisar quando um agente termina ou precisa de você. As notificações são entregues pelo serviço de notificações da Apple (APNs), e o registro das entregas é mantido pelo tempo necessário para diagnosticar falhas.
 
 **Diagnóstico.** O app pode enviar ao seu próprio servidor identificadores da conta e do aparelho em forma de hash, para que o servidor reconheça o cliente conectado. Esses dados não são enviados à EasyDev.
 
@@ -24,7 +24,7 @@ Não usamos seus dados para publicidade, não os vendemos e não rastreamos voc�
 
 ## Fornecedores
 
-Usamos Clerk (autenticação), Cloudflare (hospedagem do EasyDev Connect), Neon (banco de dados do EasyDev Connect) e os serviços de notificação da Apple e do Google. Eles tratam os dados apenas para prestar esses serviços.
+Usamos Clerk (autenticação), Cloudflare (hospedagem do EasyDev Connect), Neon (banco de dados do EasyDev Connect) o serviço de notificações da Apple e, se você entrar com o Google, o login do Google. Eles tratam os dados apenas para prestar esses serviços.
 
 ## Seus direitos
 
