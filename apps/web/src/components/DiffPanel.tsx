@@ -1609,7 +1609,7 @@ export default function DiffPanel({
       <GitActionsControl
         presentation="footer"
         showChanges={false}
-        gitCwd={activeCwd}
+        gitCwd={gitCwd}
         name={activeProject?.title ?? ""}
         workspaceMutationId={workspaceMutationId}
         activeThreadRef={routeThreadRef}
