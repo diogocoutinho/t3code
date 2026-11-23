@@ -138,6 +138,7 @@ export function decodeThreadSurface(surface: object): ThreadSurface | null {
 
 const RIGHT_PANEL_STORAGE_KEY = "t3code:right-panel-state:v2";
 const RIGHT_PANEL_STORAGE_VERSION = 17;
+const LEGACY_TERMINAL_UI_STATE_STORAGE_KEY = "t3code:terminal-state:v1";
 
 export const PULL_REQUESTS_PANEL_REF = scopeThreadRef(
   EnvironmentId.make("pull-requests-panel"),
@@ -260,12 +261,8 @@ interface RightPanelStoreState {
   ) => void;
   /** Clears the surface's pending link only while it is still `revealUrl`. */
   settlePullRequestReveal: (ref: ScopedThreadRef, surfaceId: string, revealUrl: string) => void;
-  /** A user open shows the drawer (and the panel); a background one only adds the sub-tab. */
-  openTerminal: (
-    ref: ScopedThreadRef,
-    terminalId: string,
-    options?: { background?: boolean },
-  ) => void;
+  /** Shows the drawer (and the panel); background terminals arrive through reconcile. */
+  openTerminal: (ref: ScopedThreadRef, terminalId: string) => void;
   activateTerminalSurface: (ref: ScopedThreadRef, surfaceId: string) => void;
   /** Opening also opens the thread's panel. */
   setTerminalDrawerOpen: (ref: ScopedThreadRef, open: boolean) => void;
@@ -1332,27 +1329,16 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
             );
           }),
         ),
-      openTerminal: (ref, terminalId, options) =>
-        set((state) =>
-          options?.background
-            ? automaticUpdate(state, scopedThreadKey(ref), (current) =>
-                current.surfaces.some(
-                  (surface) =>
-                    surface.kind === "terminal" && surface.terminalIds.includes(terminalId),
-                )
-                  ? current
-                  : { ...current, surfaces: [...current.surfaces, terminalSurface(terminalId)] },
-              )
-            : {
-                ...withDrawerOpen(state, (opened) =>
-                  userAction(opened, scopedThreadKey(ref), (current) => ({
-                    ...withTerminal(current, terminalId),
-                    isOpen: true,
-                  })),
-                ),
-                ...withClaimedTerminal(state, scopedThreadKey(ref), terminalId),
-              },
-        ),
+      openTerminal: (ref, terminalId) =>
+        set((state) => ({
+          ...withDrawerOpen(state, (opened) =>
+            userAction(opened, scopedThreadKey(ref), (current) => ({
+              ...withTerminal(current, terminalId),
+              isOpen: true,
+            })),
+          ),
+          ...withClaimedTerminal(state, scopedThreadKey(ref), terminalId),
+        })),
       activateTerminalSurface: (ref, surfaceId) =>
         set((state) =>
           userAction(state, scopedThreadKey(ref), (current) =>
@@ -1817,7 +1803,13 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
           ),
         ),
       }),
-      migrate: migratePersistedRightPanelState,
+      migrate: (persistedState) => {
+        // The chat drawer's own store is gone; its terminals are adopted from the server list.
+        if (typeof window !== "undefined") {
+          resolveStorage(window.localStorage).removeItem(LEGACY_TERMINAL_UI_STATE_STORAGE_KEY);
+        }
+        return migratePersistedRightPanelState(persistedState);
+      },
     },
   ),
 );

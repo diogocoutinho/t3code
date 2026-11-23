@@ -340,6 +340,7 @@ function drawerProps(
     height: 280,
     maximized: false,
     terminalAvailable: true,
+    terminalClosable: true,
     terminalLabelsById: new Map([["vitest", "vitest"]]),
     bodyHost: TERMINAL_HOST,
     onToggleOpen: noop,

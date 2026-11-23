@@ -3469,6 +3469,7 @@ export default function ChatView(props: ChatViewProps) {
           terminalDrawerMaximized &&
           rightPanelState.surfaces.some((surface) => surface.kind === "terminal"),
         terminalAvailable: activeProject !== null && canOperateTerminal,
+        terminalClosable: canOperateTerminal,
         terminalLabelsById: activeTerminalLabelsById,
         bodyHost: activeThreadKey === null ? null : terminalBodyHosts.host(activeThreadKey),
         onToggleOpen: toggleTerminalDrawerStable,

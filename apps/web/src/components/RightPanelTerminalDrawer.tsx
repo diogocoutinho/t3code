@@ -36,6 +36,8 @@ export interface RightPanelTerminalDrawerProps {
   height: number;
   maximized: boolean;
   terminalAvailable: boolean;
+  /** Without operate access a close cannot end the session, so the server would list it again. */
+  terminalClosable: boolean;
   terminalLabelsById: ReadonlyMap<string, string>;
   /** The thread's terminals, rendered elsewhere so they outlive this drawer. */
   bodyHost: TerminalBodyHost | null;
@@ -205,12 +207,16 @@ export const RightPanelTerminalDrawer = memo(function RightPanelTerminalDrawer(
                       : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                   )}
                 >
-                  <PanelTabCloseButton
-                    label={gt("Close {title}", { title: label })}
-                    onClick={() => props.onCloseSurface(surface)}
-                  >
-                    <TerminalSquare className="size-3" />
-                  </PanelTabCloseButton>
+                  {props.terminalClosable ? (
+                    <PanelTabCloseButton
+                      label={gt("Close {title}", { title: label })}
+                      onClick={() => props.onCloseSurface(surface)}
+                    >
+                      <TerminalSquare className="size-3" />
+                    </PanelTabCloseButton>
+                  ) : (
+                    <TerminalSquare aria-hidden className="size-3 shrink-0" />
+                  )}
                   <button
                     type="button"
                     className="flex min-w-0 cursor-pointer items-center"

@@ -1690,15 +1690,7 @@ export default function ThreadTerminalDrawer({
             >
               <SquareSplitVertical className="size-3.25" />
             </TerminalActionButton>
-            <div className="h-4 w-px bg-border/80" />
-            <TerminalActionButton
-              disabled={!canOperateTerminal}
-              className="p-1 text-foreground/90 transition-colors hover:bg-accent"
-              onClick={onNewTerminalAction}
-              label={newTerminalActionLabel}
-            >
-              <Plus className="size-3.25" />
-            </TerminalActionButton>
+            {/* New terminals come from the drawer's own + beside its sub-tabs. */}
             <div className="h-4 w-px bg-border/80" />
             <TerminalActionButton
               disabled={!canOperateTerminal}

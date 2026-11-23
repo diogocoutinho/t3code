@@ -1774,6 +1774,10 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
             data-right-panel-change-totals
             className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground"
           >
+            {/* The totals are the latest turn's, whatever scope the diff below shows. */}
+            <span>
+              {gt("Last turn", { $context: "the Changes header totals cover the latest turn" })}
+            </span>
             <DiffStatLabel
               additions={props.changeTotals.additions}
               deletions={props.changeTotals.deletions}
