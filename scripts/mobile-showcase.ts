@@ -1564,7 +1564,10 @@ async function main(): Promise<void> {
   }
   const hasIos = captures.some((capture) => capture.device.platform === "ios");
   const hasAndroid = captures.some((capture) => capture.device.platform === "android");
-  const metroHost = hasIos ? lanIpv4Address() : "127.0.0.1";
+  // Hosted CI simulators cannot reach the runner's LAN address; they share its loopback.
+  const metroHost = hasIos
+    ? NodeProcess.env.T3_SHOWCASE_METRO_HOST?.trim() || lanIpv4Address()
+    : "127.0.0.1";
   await NodeFSP.mkdir(outputDirectory, { recursive: true });
   for (const capture of captures) {
     const directory = showcaseCaptureDirectory(outputDirectory, capture);

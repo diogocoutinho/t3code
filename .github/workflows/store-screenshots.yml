@@ -30,6 +30,8 @@ env:
   T3CODE_APP_SCHEME: easydevcode
   T3CODE_MOBILE_BUNDLE_ID: br.com.easydevsolucoes.easydevcode.mobile
   EXPO_PUBLIC_SHOWCASE_LANGUAGE: pt-BR
+  # The hosted runner's simulator cannot load Metro from the LAN address the harness picks.
+  T3_SHOWCASE_METRO_HOST: 127.0.0.1
   SHOWCASE_ARGS: --device iphone-6.9 --device ipad-13 --appearance dark --theme easydev
   CORE_SCENES: --scene thread --scene terminal --scene review --scene threads --scene environments
 
