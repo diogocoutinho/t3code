@@ -41,6 +41,7 @@ import { findReusableProjectScriptTerminal } from "../../lib/projectScriptTermin
 import { closingTerminalIds } from "../terminal/closingTerminals";
 import { type TerminalContextSelection } from "../../lib/terminalContext";
 import { focusActivePanelTerminal, focusTerminal } from "../../lib/terminalFocus";
+import { requestWorkspaceFocus } from "../../lib/workspaceFocus";
 import {
   LAST_INVOKED_SCRIPT_BY_PROJECT_KEY,
   LastInvokedScriptByProjectSchema,
@@ -152,6 +153,7 @@ export function useChatTerminalActions(input: ChatTerminalActionsInput) {
       if (existingTerminalId !== undefined) {
         store.openTerminal(activeThreadRef, existingTerminalId);
         focusTerminal(activeThreadRef, existingTerminalId);
+        requestWorkspaceFocus({ area: "terminal" });
         return;
       }
       addTerminalSurface();
@@ -159,6 +161,8 @@ export function useChatTerminalActions(input: ChatTerminalActionsInput) {
     // Also when no shell could start, so the drawer shows why instead of nothing happening.
     store.setTerminalDrawerOpen(activeThreadRef, true);
     focusActivePanelTerminal(activeThreadRef);
+    // Opening the panel requests focus for its default, the launcher when it has no tool.
+    requestWorkspaceFocus({ area: "terminal" });
   };
   const toggleTerminalDrawerStable = useStableCallback(toggleTerminalDrawer);
   const runProjectScript = async (
