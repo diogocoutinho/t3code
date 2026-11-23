@@ -106,7 +106,10 @@ export function useRightPanelSurfaceClose(input: {
   const finishClose = (toClose: readonly RightPanelSurface[]) => {
     if (!threadRef) return;
     const store = useRightPanelStore.getState();
-    const activeId = selectThreadRightPanelState(store.byThreadKey, threadRef).activeSurfaceId;
+    const { activeSurfaceId: activeId, activeTerminalSurfaceId } = selectThreadRightPanelState(
+      store.byThreadKey,
+      threadRef,
+    );
     const ordered = toClose.toSorted(
       (left, right) => Number(left.id === activeId) - Number(right.id === activeId),
     );
@@ -123,7 +126,7 @@ export function useRightPanelSurfaceClose(input: {
     if (nextActiveSurface?.kind === "preview" && nextActiveSurface.resourceId) {
       setActivePreviewTab(threadRef, nextActiveSurface.resourceId);
     }
-    focusPanelTerminalAfterClose(threadRef, activeId);
+    focusPanelTerminalAfterClose(threadRef, activeTerminalSurfaceId);
   };
   const labelFor = (terminalId: string) =>
     terminalLabelsById.get(terminalId) ?? getTerminalLabel(terminalId, m);

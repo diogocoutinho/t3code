@@ -286,7 +286,7 @@ describe("focusTerminal", () => {
     const surfaceA = selectThreadRightPanelState(
       useRightPanelStore.getState().byThreadKey,
       ref,
-    ).activeSurfaceId!;
+    ).activeTerminalSurfaceId!;
     const focusB = vi.fn(() => true);
     const unregister = registerTerminalFocusTarget({
       threadRef: ref,
@@ -301,34 +301,21 @@ describe("focusTerminal", () => {
     unregister();
   });
 
-  it("refocuses the panel terminal only when closing changed the active surface", () => {
+  it("refocuses the drawer terminal only when closing changed the active sub-tab", () => {
     const ref = threadRef("panel-after-close");
     const panel = useRightPanelStore.getState();
     panel.openTerminal(ref, "a");
-    const terminalSurfaceId = selectThreadRightPanelState(
-      useRightPanelStore.getState().byThreadKey,
-      ref,
-    ).activeSurfaceId!;
+    panel.openTerminal(ref, "b");
     panel.open(ref, "diff");
-    const diffSurfaceId = selectThreadRightPanelState(
-      useRightPanelStore.getState().byThreadKey,
-      ref,
-    ).activeSurfaceId!;
     const focus = vi.fn(() => true);
     const unregister = registerTerminalFocusTarget({ threadRef: ref, terminalId: "a", focus });
 
-    panel.activateSurface(ref, terminalSurfaceId);
-    panel.closeSurface(ref, diffSurfaceId);
-    focusPanelTerminalAfterClose(ref, terminalSurfaceId);
+    panel.closeSurface(ref, "diff");
+    focusPanelTerminalAfterClose(ref, "terminal:b");
     expect(focus).not.toHaveBeenCalled();
 
-    panel.open(ref, "diff");
-    const reopenedDiffId = selectThreadRightPanelState(
-      useRightPanelStore.getState().byThreadKey,
-      ref,
-    ).activeSurfaceId!;
-    panel.closeSurface(ref, reopenedDiffId);
-    focusPanelTerminalAfterClose(ref, reopenedDiffId);
+    panel.closeSurface(ref, "terminal:b");
+    focusPanelTerminalAfterClose(ref, "terminal:b");
     expect(focus).toHaveBeenCalledTimes(1);
     unregister();
   });

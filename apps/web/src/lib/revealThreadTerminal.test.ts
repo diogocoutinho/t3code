@@ -23,7 +23,7 @@ it("reopens the existing panel and selects a running terminal in its split", () 
   const surfaceId = selectThreadRightPanelState(
     useRightPanelStore.getState().byThreadKey,
     threadRef,
-  ).activeSurfaceId!;
+  ).activeTerminalSurfaceId!;
   panels.splitTerminal(threadRef, surfaceId, "setup-install");
   panels.activateTerminal(threadRef, surfaceId, "terminal-1");
   panels.close(threadRef);
@@ -33,7 +33,7 @@ it("reopens the existing panel and selects a running terminal in its split", () 
     selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, threadRef),
   ).toMatchObject({
     isOpen: true,
-    activeSurfaceId: surfaceId,
+    activeTerminalSurfaceId: surfaceId,
     surfaces: [
       {
         terminalIds: ["terminal-1", "setup-install"],

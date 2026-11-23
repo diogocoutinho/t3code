@@ -1,7 +1,12 @@
 import { scopedThreadKey } from "@t3tools/client-runtime/environment";
 import type { ScopedThreadRef } from "@t3tools/contracts";
 
-import { selectThreadRightPanelState, useRightPanelStore } from "../rightPanelStore";
+import {
+  selectActiveTerminalSurface,
+  selectTerminalDrawerVisible,
+  selectThreadRightPanelState,
+  useRightPanelStore,
+} from "../rightPanelStore";
 import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
 
 export type TerminalFocusOwner = "drawer" | "right-panel";
@@ -90,29 +95,29 @@ export function focusActiveDrawerTerminal(threadRef: ScopedThreadRef): void {
   else cancelTerminalFocus(threadRef);
 }
 
-/** Focuses the active terminal of the right panel when it shows a terminal surface. */
+/** Focuses the active terminal of the right panel's drawer while the drawer shows. */
 export function focusActivePanelTerminal(threadRef: ScopedThreadRef): void {
-  const { isOpen, activeSurfaceId, surfaces } = selectThreadRightPanelState(
-    useRightPanelStore.getState().byThreadKey,
-    threadRef,
-  );
-  const surface = isOpen ? surfaces.find((candidate) => candidate.id === activeSurfaceId) : null;
-  if (surface?.kind === "terminal") focusTerminal(threadRef, surface.activeTerminalId);
+  const state = useRightPanelStore.getState();
+  if (!selectTerminalDrawerVisible(state, threadRef)) return;
+  const surface = selectActiveTerminalSurface(state.byThreadKey, threadRef);
+  if (surface) focusTerminal(threadRef, surface.activeTerminalId);
 }
 
 /**
- * After a right panel surface closes, focuses the terminal surface the panel
- * fell back to. A terminal surface that was already active keeps its focus as is.
+ * After a drawer sub-tab closes, focuses the terminal sub-tab the drawer fell
+ * back to. A sub-tab that was already active keeps its focus as is.
  */
 export function focusPanelTerminalAfterClose(
   threadRef: ScopedThreadRef,
-  previousActiveSurfaceId: string | null,
+  previousActiveTerminalSurfaceId: string | undefined,
 ): void {
-  const { activeSurfaceId } = selectThreadRightPanelState(
+  const { activeTerminalSurfaceId } = selectThreadRightPanelState(
     useRightPanelStore.getState().byThreadKey,
     threadRef,
   );
-  if (activeSurfaceId !== previousActiveSurfaceId) focusActivePanelTerminal(threadRef);
+  if (activeTerminalSurfaceId !== previousActiveTerminalSurfaceId) {
+    focusActivePanelTerminal(threadRef);
+  }
 }
 
 /**
@@ -161,9 +166,9 @@ export function restoreFocusOnThreadEnter(
       useTerminalUiStateStore.getState().terminalUiStateByThreadKey,
       threadRef,
     );
-    const panel = selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, threadRef);
-    const panelTerminal = panel.isOpen
-      ? panel.surfaces.find((surface) => surface.id === panel.activeSurfaceId)
+    const panels = useRightPanelStore.getState();
+    const panelTerminal = selectTerminalDrawerVisible(panels, threadRef)
+      ? selectActiveTerminalSurface(panels.byThreadKey, threadRef)
       : null;
     if (previous === "composer") {
       content.focusComposer();
