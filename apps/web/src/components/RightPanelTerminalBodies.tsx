@@ -1,5 +1,3 @@
-import { parseScopedThreadKey } from "@t3tools/client-runtime/environment";
-import type { ScopedThreadRef } from "@t3tools/contracts";
 import { memo, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useShallow } from "zustand/react/shallow";
@@ -13,54 +11,7 @@ import {
 import type { RightPanelTerminalProps } from "./chat/RightPanelSurfaceContent";
 import { reconcileMountedTerminalThreads } from "./RightPanelTabs.logic";
 import { RightPanelTerminalBody } from "./RightPanelTerminalBody";
-
-/** Where one thread's drawer terminals render; the drawer moves it into its body while shown. */
-export interface TerminalBodyHost {
-  readonly threadRef: ScopedThreadRef | null;
-  readonly element: HTMLDivElement;
-  /** Takes the element back out of the drawer, into the hidden holder. */
-  readonly park: () => void;
-}
-
-/**
- * One stable element per thread, so a thread's terminals survive the drawer remounting (a
- * thread switch, a closed panel, the sheet layout) without re-attaching.
- */
-export function createTerminalBodyHosts() {
-  const hosts = new Map<string, TerminalBodyHost>();
-  let holder: HTMLElement | null = null;
-  return {
-    host(threadKey: string): TerminalBodyHost {
-      let host = hosts.get(threadKey);
-      if (!host) {
-        const element = document.createElement("div");
-        element.className = "flex min-h-0 flex-1 flex-col";
-        host = {
-          threadRef: parseScopedThreadKey(threadKey),
-          element,
-          park: () => {
-            if (holder) holder.appendChild(element);
-            else element.remove();
-          },
-        };
-        hosts.set(threadKey, host);
-      }
-      return host;
-    },
-    setHolder(element: HTMLElement | null) {
-      holder = element;
-    },
-    retain(threadKeys: ReadonlySet<string>) {
-      for (const [threadKey, host] of hosts) {
-        if (threadKeys.has(threadKey)) continue;
-        host.element.remove();
-        hosts.delete(threadKey);
-      }
-    },
-  };
-}
-
-export type TerminalBodyHosts = ReturnType<typeof createTerminalBodyHosts>;
+import type { TerminalBodyHost, TerminalBodyHosts } from "./terminalBodyHosts";
 
 const EMPTY_KEYS: readonly string[] = [];
 

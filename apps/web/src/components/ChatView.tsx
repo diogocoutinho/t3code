@@ -191,7 +191,8 @@ import {
   useRightPanelStore,
 } from "../rightPanelStore";
 import type { RightPanelTerminalDrawerProps } from "./RightPanelTerminalDrawer";
-import { createTerminalBodyHosts, RightPanelTerminalBodies } from "./RightPanelTerminalBodies";
+import { RightPanelTerminalBodies } from "./RightPanelTerminalBodies";
+import { createTerminalBodyHosts } from "./terminalBodyHosts";
 import { isPreviewSupportedInRuntime, useThreadPreviewState } from "../previewStateStore";
 import { previewRuntimeTabId } from "../browser/previewRuntimeTabId";
 import {

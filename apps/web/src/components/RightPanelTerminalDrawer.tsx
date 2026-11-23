@@ -19,7 +19,7 @@ import { workspaceAreaProps } from "~/lib/workspaceFocus";
 import type { RightPanelSurface, TerminalPanelSurface } from "~/rightPanelStore";
 import { useKnownTerminalSessions } from "~/state/terminalSessions";
 
-import type { TerminalBodyHost } from "./RightPanelTerminalBodies";
+import type { TerminalBodyHost } from "./terminalBodyHosts";
 import {
   clampTerminalDrawerHeight,
   TERMINAL_DRAWER_COLLAPSED_HEIGHT,
@@ -110,7 +110,7 @@ export const RightPanelTerminalDrawer = memo(function RightPanelTerminalDrawer(
   useLayoutEffect(() => {
     const slot = bodySlotRef.current;
     if (!slot || !bodyHost) return;
-    slot.appendChild(bodyHost.element);
+    bodyHost.place(slot);
     return () => {
       if (bodyHost.element.parentElement === slot) bodyHost.park();
     };

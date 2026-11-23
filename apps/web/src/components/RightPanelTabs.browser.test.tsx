@@ -1,6 +1,6 @@
 import "~/index.css";
 
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { scopedThreadKey, scopeThreadRef } from "@t3tools/client-runtime/environment";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
@@ -15,6 +15,7 @@ import {
   RightPanelTerminalDrawer,
   type RightPanelTerminalDrawerProps,
 } from "./RightPanelTerminalDrawer";
+import { createTerminalBodyHosts } from "./terminalBodyHosts";
 import { subscribePreviewAction } from "./preview/previewActionBus";
 
 const navigateHistory = vi.hoisted(() => vi.fn());
@@ -325,7 +326,12 @@ const TERMINAL_SURFACE: TerminalPanelSurface = {
 const TERMINAL_HOST = (() => {
   const element = document.createElement("div");
   element.innerHTML = '<div data-terminal-owner="right-panel"></div>';
-  return { threadRef: THREAD_REF, element, park: () => element.remove() };
+  return {
+    threadRef: THREAD_REF,
+    element,
+    place: (slot: HTMLElement) => slot.appendChild(element),
+    park: () => element.remove(),
+  };
 })();
 
 function drawerProps(
@@ -524,6 +530,19 @@ describe("terminal drawer", () => {
     await screen.rerender(tabs(BROWSER_SURFACE));
     expect(screen.container.querySelector('[data-terminal-owner="right-panel"]')).toBe(terminal);
     expect(terminal!.isConnected).toBe(true);
+  });
+
+  it("a drawer remount on a thread switch keeps focus in the terminal it moves", async () => {
+    const host = createTerminalBodyHosts().host(scopedThreadKey(THREAD_REF));
+    host.element.innerHTML = '<textarea aria-label="Terminal input"></textarea>';
+    const drawer = (key: string) => (
+      <RightPanelTerminalDrawer key={key} {...drawerProps({ bodyHost: host })} />
+    );
+    await using screen = await render(drawer("a"));
+    const input = host.element.querySelector("textarea")!;
+    input.focus();
+    await screen.rerender(drawer("b"));
+    expect(document.activeElement).toBe(input);
   });
 
   it("maximize covers the tool and restore brings it back", async () => {
