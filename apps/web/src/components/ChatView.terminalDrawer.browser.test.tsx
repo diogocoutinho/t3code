@@ -182,20 +182,26 @@ it("terminals from the old chat drawer appear as drawer sub-tabs without closing
   expect(rpcs.opened).toEqual([]);
 });
 
-it("switching to a thread with no terminals while the drawer is open launches nothing", async () => {
+it("switching to a thread with no terminals while the drawer is open launches nothing, and terminal.toggle collapses its empty drawer", async () => {
   resetRightPanelDrawer();
   const first = threadWithHistory("thread-terminal-first", 1);
   const second = threadWithHistory("thread-terminal-second", 1);
   const firstRef = scopeThreadRef(ENVIRONMENT_ID, first.id);
   useRightPanelStore.getState().openTerminal(firstRef, "existing");
+  useRightPanelStore.getState().open(scopeThreadRef(ENVIRONMENT_ID, second.id), "diff");
   using rpcs = terminalRpcs();
   await using app = await renderThreadApp([first, second]);
 
   await act(() => app.router.navigate({ to: `/${ENVIRONMENT_ID}/${second.id}` }));
-  await expect.element(page.getByTestId("composer-editor")).toBeVisible();
+  await expect.element(page.getByText("No terminal")).toBeVisible();
   expect(useRightPanelStore.getState().terminalDrawer.open).toBe(true);
   expect(rpcs.opened).toEqual([]);
   expect(rpcs.closed).toEqual([]);
+
+  await page.getByTestId("composer-editor").click();
+  await userEvent.keyboard("{Control>}j{/Control}");
+  await vi.waitFor(() => expect(useRightPanelStore.getState().terminalDrawer.open).toBe(false));
+  expect(rpcs.opened).toEqual([]);
 });
 
 it("switching away and back keeps a thread's drawer terminal attached, even through a thread with the panel closed", async () => {

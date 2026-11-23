@@ -1509,14 +1509,14 @@ describe("rightPanelStore", () => {
     expect(claimed()).toEqual([]);
   });
 
-  it("terminalOpen is false while the drawer is open in a thread without terminals", () => {
+  it("terminalOpen follows the drawer in an open panel, also when it shows no terminal", () => {
     const store = useRightPanelStore.getState();
     store.openTerminal(refA, "term-1");
     store.open(refB, "diff");
     const state = useRightPanelStore.getState();
     expect(state.terminalDrawer.open).toBe(true);
     expect(selectTerminalDrawerVisible(state, refA)).toBe(true);
-    expect(selectTerminalDrawerVisible(state, refB)).toBe(false);
+    expect(selectTerminalDrawerVisible(state, refB)).toBe(true);
     store.close(refA);
     expect(selectTerminalDrawerVisible(useRightPanelStore.getState(), refA)).toBe(false);
   });

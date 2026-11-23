@@ -2173,19 +2173,6 @@ export default function ChatView(props: ChatViewProps) {
         closingTerminalIds(ref),
       );
   }, [embedded, environmentId, terminalServerIdsKey, terminalSnapshotId, threadId]);
-  // Collapsing never launches; opening goes through terminal.toggle's open path.
-  const toggleRightPanelTerminalDrawerStable = useStableCallback(() => {
-    if (!activeThreadRef) return;
-    const store = useRightPanelStore.getState();
-    if (
-      store.terminalDrawer.open &&
-      selectThreadRightPanelState(store.byThreadKey, activeThreadRef).isOpen
-    ) {
-      store.setTerminalDrawerOpen(activeThreadRef, false);
-      return;
-    }
-    toggleTerminalDrawerStable();
-  });
   const activateRightPanelTerminalSurfaceStable = useStableCallback((surfaceId: string) => {
     if (!activeThreadRef) return;
     useRightPanelStore.getState().activateTerminalSurface(activeThreadRef, surfaceId);
@@ -3476,7 +3463,7 @@ export default function ChatView(props: ChatViewProps) {
         terminalAvailable: activeProject !== null && canOperateTerminal,
         terminalLabelsById: activeTerminalLabelsById,
         bodyHost: activeThreadKey === null ? null : terminalBodyHosts.host(activeThreadKey),
-        onToggleOpen: toggleRightPanelTerminalDrawerStable,
+        onToggleOpen: toggleTerminalDrawerStable,
         onHeightCommit: setRightPanelTerminalDrawerHeight,
         onToggleMaximized: toggleRightPanelTerminalDrawerMaximized,
         onActivateSurface: activateRightPanelTerminalSurfaceStable,
@@ -3504,13 +3491,13 @@ export default function ChatView(props: ChatViewProps) {
       },
     }),
     dots: rightPanelDots,
-    terminalOpen: terminalDrawerPreference.open,
+    terminalOpen: terminalDrawerVisible,
     shortcutLabels: {
       changes: shortcutLabelForCommand(keybindings, "diff.toggle") ?? undefined,
       browser: shortcutLabelForCommand(keybindings, "preview.toggle") ?? undefined,
       terminal: shortcutLabelForCommand(keybindings, "terminal.toggle") ?? undefined,
     },
-    onToggleTerminal: toggleRightPanelTerminalDrawerStable,
+    onToggleTerminal: toggleTerminalDrawerStable,
   };
   const panelToggleControlProps = {
     terminalAvailable: activeProject !== null,

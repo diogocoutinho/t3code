@@ -1916,14 +1916,12 @@ export function selectClaimedTerminalIds(
   return (ref && state.claimedTerminalIdsByThreadKey[scopedThreadKey(ref)]) || EMPTY_IDS;
 }
 
-/** What `terminalOpen` means: the drawer shows, in an open panel, with a terminal to show. */
+/** What `terminalOpen` means: the drawer is open in an open panel, even with no terminal. */
 export function selectTerminalDrawerVisible(
   state: Pick<RightPanelStoreState, "byThreadKey" | "terminalDrawer">,
   ref: ScopedThreadRef | null | undefined,
 ): boolean {
-  if (!state.terminalDrawer.open) return false;
-  const thread = selectThreadRightPanelState(state.byThreadKey, ref);
-  return thread.isOpen && thread.surfaces.some(isTerminalSurface);
+  return state.terminalDrawer.open && selectThreadRightPanelState(state.byThreadKey, ref).isOpen;
 }
 
 /** The drawer flag is global, so a group another thread already shows is filtered here. */
