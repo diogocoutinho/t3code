@@ -461,7 +461,7 @@ export function HomeScreen(props: HomeScreenProps) {
     }
     onSelectThread(thread);
   };
-  useThreadJumpShortcuts(threadListV2Items, selectThread);
+  useThreadJumpShortcuts(threadListV2Items, selectThread, props.onSelectPendingTask);
   const delegatedUnderParent = useDelegatedUnderParent();
   // Search lists its own matches; the section would only repeat them.
   const needsYouThreads = hasSearchQuery

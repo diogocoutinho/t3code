@@ -10,7 +10,7 @@ build. It is not a deployment recipe for the T3 Connect relay.
 The **environment** is the server on the machine that owns the projects, provider credentials,
 files, and database. Clients connect to it over HTTP and WebSocket. The environment can run on a
 laptop, desktop, or VPS. Moving only the web UI to a VPS does not move projects from a laptop to
-that VPS. See [remote architecture](../internals/remote.md).
+that VPS. See [remote architecture](../internals/05_remote.md).
 On a different machine, the saved absolute project paths and provider credentials must also be
 made available there; copying the database alone does not move them. A copied home retains the
 environment identity, so never run both copies online at the same time.
@@ -75,7 +75,7 @@ merge threads from two environments. Start the copied installation with another 
 ## Prepare an isolated replacement
 
 1. Pin a fork commit or published release. For a source build, use the Node version required by
-   the root `package.json`, follow [development setup](./development.md#first-checkout), and keep
+   the root `package.json`, follow [development setup](./00_development.md#first-checkout), and keep
    its commit SHA. A source build can run the server with `node apps/server/dist/bin.mjs`; it does
    not use the installed launcher or its update path. Use a published fork release for the service
    that will receive automatic updates.
@@ -220,7 +220,7 @@ Connect, T3 Chat, and the license text keep their names.
   The server's automatic updater does not update the iPhone app. JavaScript-only mobile updates
   can use the fork's Expo project after OTA is enabled; native changes need a new signed build.
 
-The [release runbook](./release.md) describes the upstream signing, archive, and update-feed
+The [release runbook](./03_release.md) describes the upstream signing, archive, and update-feed
 formats. Reusing its workflow in a fork requires replacing upstream credentials, domains,
 distribution destinations, and release ownership; a fork checkout alone does not change them.
 

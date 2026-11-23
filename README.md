@@ -68,7 +68,7 @@ EasyDev Code needs one agent that is installed and signed in. For example, insta
 
 - Report bugs and request features in [Issues](https://github.com/diogocoutinho/t3code/issues).
 - Report vulnerabilities as [SECURITY.md](./SECURITY.md) describes.
-- Build from source with the [development runbook](./docs/operations/development.md#first-checkout). The [architecture overview](./docs/internals/overview.md) explains how it works.
+- Build from source with the [development runbook](./docs/operations/00_development.md#first-checkout). The [architecture overview](./docs/internals/01_architecture.md) explains how it works.
 - Changes that are not specific to this fork belong upstream in [T3 Code](https://github.com/pingdotgg/t3code); read its [CONTRIBUTING.md](./CONTRIBUTING.md) first.
 
 ## License

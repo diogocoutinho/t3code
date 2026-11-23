@@ -156,7 +156,7 @@ export function SidebarThreadHeader({
   );
 }
 
-/** The label above the thread list, with the project filter and Add project beside it. */
+/** The label above the thread list, with the project filter beside it. */
 export function SidebarListHeading({ label, children }: { label: string; children?: ReactNode }) {
   return (
     <li className="mt-1 flex h-7 list-none items-center gap-1 ps-2.5">

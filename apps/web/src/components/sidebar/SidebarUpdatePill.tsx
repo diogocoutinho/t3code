@@ -22,6 +22,7 @@ import {
   getDesktopUpdateDownloadedVersion,
   getDesktopUpdateIdleTooltip,
   getDesktopUpdateInstallConfirmationMessage,
+  installDesktopUpdate,
   isDesktopUpdateButtonDisabled,
   resolveDesktopUpdateButtonAction,
   shouldShowArm64IntelBuildWarning,
@@ -175,12 +176,8 @@ export async function installLocalUpdate(
   reportError: ReportLocalUpdateError = toastUpdateError,
   expectedVersion?: string,
 ): Promise<boolean> {
-  const failure = Promise.withResolvers<string>();
-  const unsubscribe = bridge.onUpdateState((state) => {
-    if (state.errorContext === "install" && state.message) failure.resolve(state.message);
-  });
   try {
-    const result = await bridge.installUpdate(expectedVersion);
+    const result = await installDesktopUpdate(bridge, expectedVersion);
     if (!result.accepted) {
       showDesktopUpdateDownloadedToast(bridge, result.state);
       return false;
@@ -188,12 +185,8 @@ export async function installLocalUpdate(
     const actionError = shouldToastDesktopUpdateActionResult(result)
       ? getDesktopUpdateActionError(result)
       : null;
-    if (actionError) {
-      reportError(m(msg("Could not install update")), actionError);
-      return false;
-    }
-    // A success quits this app. macOS reports a refused install later, through the update state.
-    reportError(m(msg("Could not install update")), await failure.promise);
+    if (!actionError) return true;
+    reportError(m(msg("Could not install update")), actionError);
     return false;
   } catch (error) {
     reportError(
@@ -201,8 +194,6 @@ export async function installLocalUpdate(
       thrownErrorMessage(error, m) ?? m(msg("An unexpected error occurred.")),
     );
     return false;
-  } finally {
-    unsubscribe();
   }
 }
 

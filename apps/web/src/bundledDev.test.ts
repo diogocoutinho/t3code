@@ -30,6 +30,7 @@ it("initializes React refresh before a shared UI chunk runs in bundled dev", asy
       "index.html",
       "src/bootstrap.ts",
       "src/lib/bootError.ts",
+      "src/lib/chunkReloadGuard.ts",
       "src/projectLinks.ts",
     ]) {
       await NodeFSP.copyFile(new URL(`../${file}`, import.meta.url), NodePath.join(root, file));
@@ -99,6 +100,7 @@ export const startup = Promise.resolve().then(() => globalThis.onStarted(Shared(
       `import assert from "node:assert/strict";
 const started = Promise.withResolvers();
 globalThis.window = globalThis;
+globalThis.addEventListener = () => {};
 globalThis.document = {
   createElement: () => ({ relList: { supports: () => true } }),
   getElementById: () => null,
