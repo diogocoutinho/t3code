@@ -603,7 +603,8 @@ jobs:
   mobile_native_static_analysis:
     name: Mobile Native Static Analysis
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.mobile_native != 'false' }}
+    # The fork's macOS jobs sit queued until they're cancelled, so it skips this one.
+    if: ${{ !cancelled() && github.repository == 'pingdotgg/t3code' && needs.changes.outputs.mobile_native != 'false' }}
     runs-on: ${{ github.repository == 'pingdotgg/t3code' && 'blacksmith-6vcpu-macos-27' || 'macos-latest' }}
     timeout-minutes: 10
     steps:
@@ -683,17 +684,19 @@ jobs:
       - name: Require every job to pass
         env:
           RESULTS: ${{ toJSON(needs) }}
+          UPSTREAM: ${{ github.repository == 'pingdotgg/t3code' }}
         run: |
           echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
           # A job may skip only when `changes` said every gate it represents was
           # not needed. Gates are keyed by job name, except merged Build and the
           # macOS lint.
-          echo "$RESULTS" | jq -e '.changes.outputs as $gates
+          echo "$RESULTS" | jq -e --argjson upstream "$UPSTREAM" '.changes.outputs as $gates
             | {build: ["build", "typecheck", "desktop_launch"], mobile_native_static_analysis: ["mobile_native"]} as $renamed
             | all(to_entries[];
                 .value.result == "success"
                 or (.value.result == "skipped"
-                  and (($renamed[.key] // [.key]) | all(.[]; $gates[.] == "false"))))' > /dev/null
+                  and (($renamed[.key] // [.key]) | all(.[]; $gates[.] == "false")))
+                or (.key == "mobile_native_static_analysis" and .value.result == "skipped" and ($upstream | not)))' > /dev/null
 
       # thread-transfer-report.yml reads this artifact after CI, so a run whose
       # server tests ran must have produced it.
