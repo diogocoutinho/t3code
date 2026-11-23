@@ -542,3 +542,53 @@ describe("terminal drawer", () => {
     await expect.element(content).toBeVisible();
   });
 });
+
+describe("panel parity", () => {
+  it("in the narrow sheet the rail is present and the terminal icon opens the drawer", async () => {
+    const onToggleTerminal = vi.fn();
+    const props = railPanel(DIFF_SURFACE);
+    await using screen = await render(
+      <RightPanelTabs
+        {...props}
+        mode="sheet"
+        rail={{ ...props.rail!, onToggleTerminal }}
+        terminalDrawer={drawerProps({ open: false })}
+      />,
+      { container: sizedContainer(600) },
+    );
+    const rail = screen.container.querySelector("[data-right-panel-rail]");
+    expect(rail).not.toBeNull();
+    await userEvent.click(rail!.querySelector('[data-rail-group="terminal"]')!);
+    expect(onToggleTerminal).toHaveBeenCalledOnce();
+  });
+
+  it("drawer height never exceeds the sheet's height", async () => {
+    await using screen = await render(
+      <RightPanelTabs
+        {...railPanel(DIFF_SURFACE)}
+        mode="sheet"
+        terminalDrawer={drawerProps({ height: 2000 })}
+      />,
+      { container: sizedContainer(400) },
+    );
+    const drawer = screen.container.querySelector<HTMLElement>(
+      "[data-right-panel-terminal-drawer]",
+    )!;
+    const column = drawer.parentElement!;
+    expect(drawer.getBoundingClientRect().height).toBeLessThanOrEqual(
+      column.getBoundingClientRect().height - 120,
+    );
+    expect(drawer.getBoundingClientRect().height).toBeGreaterThan(0);
+  });
+
+  it("maximized panel keeps the rail and the drawer", async () => {
+    await using screen = await render(
+      <RightPanelTabs {...railPanel(DIFF_SURFACE)} maximized terminalDrawer={drawerProps()} />,
+      { container: sizedContainer(600) },
+    );
+    expect(screen.container.querySelector("[data-right-panel-rail]")).not.toBeNull();
+    expect(
+      screen.container.querySelector('[data-right-panel-terminal-drawer="open"]'),
+    ).not.toBeNull();
+  });
+});
