@@ -1,8 +1,5 @@
-import {
-  AuthTerminalOperateScope,
-  AuthTerminalReadScope,
-  type ScopedThreadRef,
-} from "@t3tools/contracts";
+import { scopedThreadKey } from "@t3tools/client-runtime/environment";
+import { AuthTerminalOperateScope, type ScopedThreadRef } from "@t3tools/contracts";
 import { T } from "gt-react";
 import { memo } from "react";
 
@@ -17,7 +14,7 @@ import { useTerminalDrawerSessions } from "~/state/terminalSessions";
 
 import type { RightPanelTerminalProps } from "./chat/RightPanelSurfaceContent";
 import { PersistentThreadTerminalPanel } from "./PersistentThreadTerminals";
-import { terminalSurfaceMount } from "./RightPanelTabs.logic";
+import { currentTerminalClaims, terminalSurfaceMount } from "./RightPanelTabs.logic";
 import { useThreadTerminalActions } from "./terminal/useThreadTerminalActions";
 
 export interface RightPanelTerminalBodyProps {
@@ -32,14 +29,23 @@ export const RightPanelTerminalBody = memo(function RightPanelTerminalBody(
   props: RightPanelTerminalBodyProps,
 ) {
   const { threadRef, surface } = props;
-  const canRead = useEnvironmentScope(threadRef.environmentId, AuthTerminalReadScope);
   const listing = useTerminalDrawerSessions(threadRef.environmentId, threadRef.threadId);
   const claimedIds = useRightPanelStore((state) => selectClaimedTerminalIds(state, threadRef));
-  // Without read access the list never arrives, so an unclaimed id is treated as ended.
-  const serverIds = canRead
-    ? (listing?.sessions.map((session) => session.target.terminalId) ?? null)
-    : [];
-  const mount = terminalSurfaceMount({ terminalIds: surface.terminalIds, serverIds, claimedIds });
+  const observedSnapshotId = useRightPanelStore(
+    (state) => state.terminalServerObservationByThreadKey[scopedThreadKey(threadRef)]?.snapshotId,
+  );
+  // Without read access the list never arrives, and the id may be live: Restart would replace
+  // it, so an unclaimed sub-tab stays pending rather than ended.
+  const serverIds = listing?.sessions.map((session) => session.target.terminalId) ?? null;
+  const mount = terminalSurfaceMount({
+    terminalIds: surface.terminalIds,
+    serverIds,
+    claimedIds: currentTerminalClaims({
+      claimedIds,
+      observedSnapshotId,
+      serverSnapshotId: listing?.snapshotId,
+    }),
+  });
   if (mount.kind === "mount") {
     const { terminalIds } = mount;
     return (

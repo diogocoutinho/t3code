@@ -177,6 +177,22 @@ export function terminalSurfaceMount(input: {
   return input.serverIds === null ? { kind: "pending" } : { kind: "ended" };
 }
 
+/**
+ * Claims are cleared when the thread's reconcile sees a new server snapshot, which runs only
+ * after a render; until then a list from a restarted server voids them.
+ */
+export function currentTerminalClaims(input: {
+  claimedIds: readonly string[];
+  observedSnapshotId: string | symbol | undefined;
+  serverSnapshotId: string | symbol | undefined;
+}): readonly string[] {
+  return input.observedSnapshotId === undefined ||
+    input.serverSnapshotId === undefined ||
+    input.observedSnapshotId === input.serverSnapshotId
+    ? input.claimedIds
+    : [];
+}
+
 const MAX_HIDDEN_MOUNTED_TERMINAL_THREADS = 10;
 
 /**

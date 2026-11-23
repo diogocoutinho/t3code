@@ -1507,6 +1507,9 @@ describe("rightPanelStore", () => {
     store.openTerminal(refA, "pending");
     store.reconcileTerminalSurfaces(refA, ["adopted", "launched"], "manager-2", []);
     expect(claimed()).toEqual([]);
+    // Already listed: a claim would outlive the session if the server later dropped it.
+    store.openTerminal(refA, "adopted");
+    expect(claimed()).toEqual([]);
   });
 
   it("terminalOpen follows the drawer in an open panel, also when it shows no terminal", () => {

@@ -2288,7 +2288,8 @@ export default function ChatView(props: ChatViewProps) {
     activeThreadRef,
     workspaceLayoutElement,
     !embedded,
-    terminalDrawerVisible,
+    // The drawer's own open or collapse, not the panel opening around it, restores focus.
+    terminalDrawerPreference.open,
     isCoarsePointer ? ignoreComposerFocus : focusComposerStable,
   );
 

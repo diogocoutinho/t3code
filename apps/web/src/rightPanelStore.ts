@@ -648,7 +648,8 @@ const withClaimedTerminal = (
   terminalId: string,
 ): Partial<RightPanelStoreState> => {
   const claimed = state.claimedTerminalIdsByThreadKey[threadKey] ?? EMPTY_IDS;
-  return claimed.includes(terminalId)
+  const listed = state.terminalServerObservationByThreadKey[threadKey]?.ids.includes(terminalId);
+  return claimed.includes(terminalId) || listed
     ? {}
     : {
         claimedTerminalIdsByThreadKey: {

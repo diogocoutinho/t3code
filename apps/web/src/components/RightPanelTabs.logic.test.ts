@@ -7,6 +7,7 @@ import type { RightPanelSurface } from "~/rightPanelStore";
 import {
   changesNovel,
   clampTerminalDrawerHeight,
+  currentTerminalClaims,
   latestTurnChangeTotals,
   nextUnseenRightPanelGroups,
   reconcileMountedTerminalThreads,
@@ -325,6 +326,19 @@ describe("terminal mounting", () => {
     expect(terminalSurfaceMount({ terminalIds: ["a"], serverIds: [], claimedIds: [] })).toEqual({
       kind: "ended",
     });
+  });
+
+  it("ignores claims made before the server restarted, until reconcile clears them", () => {
+    const claimedIds = ["a"];
+    expect(
+      currentTerminalClaims({ claimedIds, observedSnapshotId: "m1", serverSnapshotId: "m2" }),
+    ).toEqual([]);
+    expect(
+      currentTerminalClaims({ claimedIds, observedSnapshotId: "m1", serverSnapshotId: "m1" }),
+    ).toEqual(["a"]);
+    expect(
+      currentTerminalClaims({ claimedIds, observedSnapshotId: undefined, serverSnapshotId: "m2" }),
+    ).toEqual(["a"]);
   });
 });
 
