@@ -24,7 +24,7 @@ Não usamos seus dados para publicidade, não os vendemos e não rastreamos voc�
 
 ## Fornecedores
 
-Usamos Clerk (autenticação), Cloudflare (hospedagem do EasyDev Connect), Neon (banco de dados do EasyDev Connect) o serviço de notificações da Apple e, se você entrar com o Google, o login do Google. Eles tratam os dados apenas para prestar esses serviços.
+Usamos Clerk (autenticação), Cloudflare (hospedagem do EasyDev Connect), Neon (banco de dados do EasyDev Connect), o serviço de notificações da Apple e, se você entrar com o Google, o login do Google. Eles tratam os dados apenas para prestar esses serviços.
 
 ## Seus direitos
 
