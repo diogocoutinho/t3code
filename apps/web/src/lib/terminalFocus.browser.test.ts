@@ -9,6 +9,7 @@ import {
   focusTerminal,
   focusTerminalOnNavigation,
   focusTerminalViewport,
+  lastThreadFocusWasTerminal,
   registerTerminalFocusTarget,
   restoreFocusOnThreadEnter,
 } from "./terminalFocus";
@@ -156,6 +157,16 @@ describe("thread focus restoration", () => {
       expect(document.activeElement).toBe(expected);
     },
   );
+
+  it("tells whether a terminal or the composer last had focus in the entered thread", () => {
+    using thread = mountThread("last-focus");
+    using drawer = thread.mountTerminal("drawer");
+    using _leave = { [Symbol.dispose]: thread.enter() };
+    drawer.input.focus();
+    expect(lastThreadFocusWasTerminal(thread.ref)).toBe(true);
+    thread.composer.focus();
+    expect(lastThreadFocusWasTerminal(thread.ref)).toBe(false);
+  });
 
   it("keeps an explicit terminal navigation request ahead of remembered composer focus", () => {
     using thread = mountThread("explicit-reveal");

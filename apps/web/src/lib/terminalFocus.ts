@@ -171,6 +171,11 @@ export function restoreFocusOnThreadEnter(
   };
 }
 
+/** Whether a terminal, not the composer, last had focus in the thread ChatView shows. */
+export function lastThreadFocusWasTerminal(threadRef: ScopedThreadRef): boolean {
+  return typeof lastThreadFocus.get(scopedThreadKey(threadRef)) === "object";
+}
+
 function cancelTerminalFocus(threadRef: ScopedThreadRef): void {
   if (pendingFocus?.threadKey === scopedThreadKey(threadRef)) pendingFocus = null;
 }

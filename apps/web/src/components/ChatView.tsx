@@ -243,7 +243,11 @@ import { usePanelAnimationSettings, usePanelPresence } from "../panelAnimations"
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
 import { useOpenPanelPullRequestUrl } from "../hooks/useOpenPanelPullRequestUrl";
 import { isPreviewFocused } from "../lib/previewFocus";
-import { focusActivePanelTerminal, getTerminalFocusOwner } from "../lib/terminalFocus";
+import {
+  focusActivePanelTerminal,
+  getTerminalFocusOwner,
+  lastThreadFocusWasTerminal,
+} from "../lib/terminalFocus";
 import { draftModelSelectionApplies, threadHasStarted } from "../lib/chatThreadActions";
 import {
   deriveLogicalProjectKeyFromSettings,
@@ -2290,15 +2294,7 @@ export default function ChatView(props: ChatViewProps) {
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- window focus listener that refocuses the composer after the window regains focus on a fine pointer
   useEffect(() => {
-    if (
-      embedded ||
-      !activeThread?.id ||
-      terminalDrawerVisible ||
-      isMobileViewport ||
-      isCoarsePointer
-    ) {
-      return;
-    }
+    if (embedded || !activeThread?.id || isMobileViewport || isCoarsePointer) return;
     let frame: number | null = null;
     const onWindowFocus = () => {
       if (frame !== null) window.cancelAnimationFrame(frame);
@@ -2307,6 +2303,14 @@ export default function ChatView(props: ChatViewProps) {
         frame = window.requestAnimationFrame(() => {
           frame = null;
           if (document.querySelector("[data-mcp-app-fullscreen]") !== null) return;
+          // The drawer is global, so only a terminal that had focus in this thread keeps it.
+          const ref = scopeThreadRef(environmentId, threadId);
+          if (
+            selectTerminalDrawerVisible(useRightPanelStore.getState(), ref) &&
+            lastThreadFocusWasTerminal(ref)
+          ) {
+            return;
+          }
           if (
             !isInSideChatPane(document.activeElement) &&
             shouldRefocusComposerOnWindowFocus(document.activeElement, document.getSelection())
@@ -2324,10 +2328,11 @@ export default function ChatView(props: ChatViewProps) {
   }, [
     activeThread?.id,
     embedded,
+    environmentId,
     focusComposerStable,
     isCoarsePointer,
     isMobileViewport,
-    terminalDrawerVisible,
+    threadId,
   ]);
 
   // Promotion drops draftId while a send may still be dispatching, so key by thread.

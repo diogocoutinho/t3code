@@ -235,6 +235,38 @@ it("switching away and back keeps a thread's drawer terminal attached, even thro
   expect(rpcs.opened).toEqual([]);
 });
 
+it("with the drawer showing a terminal, returning to the window and opening the panel keep the composer focused", async () => {
+  resetRightPanelDrawer();
+  const thread = threadWithHistory("thread-terminal-focus", 1);
+  const ref = scopeThreadRef(ENVIRONMENT_ID, thread.id);
+  useRightPanelStore.getState().openTerminal(ref, "focus");
+  useRightPanelStore.getState().close(ref);
+  using _rpcs = terminalRpcs();
+  await using _app = await renderThreadApp([thread]);
+  const composer = page.getByTestId("composer-editor");
+  await composer.click();
+  await expect.element(composer).toHaveFocus();
+
+  await userEvent.keyboard("{Control>}{Alt>}b{/Alt}{/Control}");
+  await vi.waitFor(() =>
+    expect(selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, ref).isOpen).toBe(
+      true,
+    ),
+  );
+  await vi.waitFor(() =>
+    expect(
+      document.querySelector(
+        '[data-right-panel-terminal-body] [data-terminal-owner="right-panel"]',
+      ),
+    ).not.toBeNull(),
+  );
+  await expect.element(composer).toHaveFocus();
+
+  (document.activeElement as HTMLElement | null)?.blur();
+  window.dispatchEvent(new FocusEvent("focus"));
+  await expect.element(composer).toHaveFocus();
+});
+
 it("a saved sub-tab the server no longer lists starts no shell and offers Restart", async () => {
   resetRightPanelDrawer();
   const first = threadWithHistory("thread-terminal-plain", 1);
