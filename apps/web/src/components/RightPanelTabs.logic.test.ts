@@ -7,15 +7,11 @@ import type { RightPanelSurface } from "~/rightPanelStore";
 import {
   changesNovel,
   clampTerminalDrawerHeight,
-  latestTurnChangedFileCount,
   latestTurnChangeTotals,
   nextUnseenRightPanelGroups,
   reconcileTerminalSurfaceIds,
-  rightPanelDynamicTabSurfaces,
   rightPanelGroupOf,
   rightPanelGroupTarget,
-  rightPanelSectionOf,
-  rightPanelSectionTarget,
   terminalDrawerStatus,
   TERMINAL_DRAWER_MIN_HEIGHT,
   visibleRightPanelToolGroups,
@@ -28,44 +24,8 @@ const firstTerminal = {
   terminalIds: ["a"],
   activeTerminalId: "a",
 } as unknown as RightPanelSurface;
-const secondTerminal = {
-  id: "terminal:b",
-  kind: "terminal",
-  terminalIds: ["b"],
-  activeTerminalId: "b",
-} as unknown as RightPanelSurface;
 const browser: RightPanelSurface = { id: "browser:tab", kind: "preview", resourceId: "tab" };
 const files = { id: "files", kind: "files" } as unknown as RightPanelSurface;
-
-describe("right panel sections", () => {
-  const surfaces = [diff, firstTerminal, files, secondTerminal, browser];
-
-  it("maps diff, terminal and browser surfaces to their section", () => {
-    expect(rightPanelSectionOf(diff)).toBe("changes");
-    expect(rightPanelSectionOf(secondTerminal)).toBe("terminal");
-    expect(rightPanelSectionOf(browser)).toBe("browser");
-    expect(rightPanelSectionOf(files)).toBeNull();
-    expect(rightPanelSectionOf(undefined)).toBeNull();
-  });
-
-  it("keeps the active surface when it already belongs to the section", () => {
-    expect(rightPanelSectionTarget(surfaces, "terminal:a", "terminal")).toBe(firstTerminal);
-  });
-
-  it("falls back to the newest surface of the section's kind", () => {
-    expect(rightPanelSectionTarget(surfaces, "files", "terminal")).toBe(secondTerminal);
-    expect(rightPanelSectionTarget(surfaces, null, "changes")).toBe(diff);
-  });
-
-  it("asks for a new surface when the section has none, so a click never adds a second one", () => {
-    expect(rightPanelSectionTarget([diff, files], "diff", "browser")).toBeNull();
-    expect(rightPanelSectionTarget([files], "files", "terminal")).toBeNull();
-  });
-
-  it("drops the diff and terminals from the dynamic tabs", () => {
-    expect(rightPanelDynamicTabSurfaces(surfaces)).toEqual([files, browser]);
-  });
-});
 
 function summary(
   checkpointTurnCount: number,
@@ -108,21 +68,6 @@ describe("latestTurnChangeTotals", () => {
 
   it("has no totals before the first turn", () => {
     expect(latestTurnChangeTotals([])).toBeNull();
-  });
-});
-
-describe("latestTurnChangedFileCount", () => {
-  it("counts the files of the highest turn, whatever the order", () => {
-    expect(latestTurnChangedFileCount([summary(2, 3), summary(1, 7)])).toBe(3);
-    expect(latestTurnChangedFileCount([summary(1, 7), summary(2, 3)])).toBe(3);
-  });
-
-  it("uses the server total when the file list is only a prefix", () => {
-    expect(latestTurnChangedFileCount([summary(1, 2, 40)])).toBe(40);
-  });
-
-  it("has no count before the first turn", () => {
-    expect(latestTurnChangedFileCount([])).toBeNull();
   });
 });
 

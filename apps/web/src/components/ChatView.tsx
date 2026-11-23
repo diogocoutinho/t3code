@@ -181,6 +181,7 @@ import {
   selectActiveRightPanel,
   selectActiveRightPanelSurface,
   selectThreadPanelOpen,
+  selectRightPanelUnseenGroups,
   selectThreadRightPanelState,
   type TerminalPanelSurface,
   useRightPanelStore,
@@ -390,7 +391,13 @@ import { observeResize } from "~/lib/observeResize";
 import { ThreadVisitWatermark } from "./chat/ThreadVisitWatermark";
 import { ChatTerminalDrawers } from "./chat/ChatTerminalDrawers";
 import { ChatRightPanel } from "./chat/ChatRightPanel";
-import { latestTurnChangedFileCount, latestTurnChangeTotals } from "./RightPanelTabs.logic";
+import {
+  changesNovel,
+  latestTurnChangeTotals,
+  type RightPanelRailGroup,
+  visibleRightPanelToolGroups,
+} from "./RightPanelTabs.logic";
+import type { RightPanelRailInput } from "./RightPanelTabs";
 import { useDraftEnvironmentRouting } from "./chat/useDraftEnvironmentRouting";
 import { branchMismatchBannerItem, extensionStatusBannerItem } from "./chat/ThreadActivityBanners";
 import { ThreadNow } from "./chat/ThreadNow";
@@ -1118,6 +1125,9 @@ export default function ChatView(props: ChatViewProps) {
   );
   const terminalDrawerPreference = useRightPanelStore((state) => state.terminalDrawer);
   const terminalDrawerMaximized = useRightPanelStore((state) => state.terminalDrawerMaximized);
+  const unseenRightPanelGroups = useRightPanelStore(
+    useShallow((state) => selectRightPanelUnseenGroups(state, activeThreadRef)),
+  );
   const shouldUsePlanSidebarSheet = prefersPlanSidebarSheet && rightPanelState.maximized !== true;
   const activeRightPanelSurface = useRightPanelStore((state) =>
     selectActiveRightPanelSurface(state.byThreadKey, activeThreadRef),
@@ -3440,6 +3450,34 @@ export default function ChatView(props: ChatViewProps) {
         onNewTerminal: addTerminalSurfaceStable,
       }
     : null;
+  const rightPanelDots = new Set<RightPanelRailGroup>(unseenRightPanelGroups);
+  if (
+    changesNovel({
+      latest: latestChangeTotals,
+      seenTurnCount: rightPanelState.changesSeenTurnCount,
+      changesVisible,
+    })
+  ) {
+    rightPanelDots.add("changes");
+  }
+  const rightPanelRail: RightPanelRailInput = {
+    groups: visibleRightPanelToolGroups({
+      surfaces: rightPanelState.surfaces,
+      available: {
+        reviews: pullRequestSurfaceAvailable || linkedItemsSurfaceAvailable,
+        devices: activeThreadRef !== null,
+        threads: sideChatsOffered,
+      },
+    }),
+    dots: rightPanelDots,
+    terminalOpen: terminalDrawerPreference.open,
+    shortcutLabels: {
+      changes: shortcutLabelForCommand(keybindings, "diff.toggle") ?? undefined,
+      browser: shortcutLabelForCommand(keybindings, "preview.toggle") ?? undefined,
+      terminal: shortcutLabelForCommand(keybindings, "terminal.toggle") ?? undefined,
+    },
+    onToggleTerminal: toggleRightPanelTerminalDrawerStable,
+  };
   const panelToggleControlProps = {
     terminalAvailable: activeProject !== null,
     terminalOpen: terminalUiState.terminalOpen,
@@ -4206,7 +4244,8 @@ export default function ChatView(props: ChatViewProps) {
           filesAvailable={activeProject !== null}
           pullRequestAvailable={pullRequestSurfaceAvailable}
           pullRequestsAvailable={linkedItemsSurfaceAvailable}
-          changesCount={latestTurnChangedFileCount(turnDiffSummaries)}
+          changeTotals={latestChangeTotals}
+          rail={rightPanelRail}
           terminalDrawer={rightPanelTerminalDrawer}
           deviceAvailable={activeThreadRef !== null}
           sideChatAvailable={sideChat.available}

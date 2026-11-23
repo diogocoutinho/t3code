@@ -3,7 +3,8 @@ import "~/index.css";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import { EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { userEvent } from "vite-plus/test/browser";
+import { page, userEvent } from "vite-plus/test/browser";
+import { compileResolvedKeybindingsConfig } from "@t3tools/shared/keybindings";
 
 import { InputGroup, InputGroupAddon, InputGroupInput } from "~/components/ui/input-group";
 import type { RightPanelSurface, TerminalPanelSurface } from "~/rightPanelStore";
@@ -138,6 +139,7 @@ describe("RightPanelTabs", () => {
           pullRequestAvailable={false}
           pullRequestsAvailable={false}
           deviceAvailable={false}
+          rail={null}
         >
           {null}
         </RightPanelTabs>
@@ -211,6 +213,13 @@ function panel(activeSurface: RightPanelSurface) {
     pullRequestAvailable: true,
     pullRequestsAvailable: true,
     deviceAvailable: true,
+    rail: {
+      groups: ["changes", "browser", "files", "reviews", "devices"],
+      dots: new Set(),
+      terminalOpen: false,
+      shortcutLabels: {},
+      onToggleTerminal: noop,
+    },
     children: (
       <div data-testid="surface-content">
         {/* Stands in for ServerBrowserSurface, whose page canvas handles thumb buttons itself. */}
@@ -360,6 +369,92 @@ function sizedContainer(height: number) {
   container.style.cssText = `width: 480px; height: ${height}px; display: flex; flex-direction: column`;
   return container;
 }
+
+const SECOND_BROWSER: RightPanelSurface = {
+  id: "browser:tab-2",
+  kind: "preview",
+  resourceId: "tab-2",
+};
+const FILE_SURFACE: RightPanelSurface = {
+  id: "file:src/a.ts",
+  kind: "file",
+  relativePath: "src/a.ts",
+  revealLine: null,
+  revealRequestId: 1,
+};
+
+function railPanel(
+  active: RightPanelSurface,
+  overrides: Partial<RightPanelTabsProps> = {},
+): RightPanelTabsProps {
+  return {
+    ...(panel(active).props as RightPanelTabsProps),
+    surfaces: [DIFF_SURFACE, BROWSER_SURFACE, FILE_SURFACE, SECOND_BROWSER],
+    ...overrides,
+  };
+}
+
+describe("rail", () => {
+  it("clicking a group shows its active surface, or creates one when it has none", async () => {
+    const onActivate = vi.fn();
+    const onAddDevice = vi.fn();
+    await using screen = await render(
+      <RightPanelTabs {...railPanel(DIFF_SURFACE, { onActivate, onAddDevice })} />,
+    );
+    const rail = screen.container.querySelector("[data-right-panel-rail]")!;
+    await userEvent.click(rail.querySelector('[data-rail-group="browser"]')!);
+    expect(onActivate).toHaveBeenCalledExactlyOnceWith(SECOND_BROWSER);
+    await userEvent.click(rail.querySelector('[data-rail-group="devices"]')!);
+    expect(onAddDevice).toHaveBeenCalledOnce();
+  });
+
+  it("a group's sub-tabs list only its surfaces", async () => {
+    await using screen = await render(<RightPanelTabs {...railPanel(BROWSER_SURFACE)} />);
+    const tabs = [
+      ...screen.container.querySelectorAll<HTMLElement>(
+        "[data-right-panel-tab-list] [data-active-tab]",
+      ),
+    ];
+    expect(tabs).toHaveLength(2);
+    expect(screen.container.querySelector("[data-right-panel-tool-name]")?.textContent).toBe(
+      "Browser",
+    );
+  });
+
+  it("shows a static novelty dot on an inactive group and none on the active one", async () => {
+    const props = railPanel(DIFF_SURFACE);
+    await using screen = await render(
+      <RightPanelTabs
+        {...props}
+        rail={{ ...props.rail!, dots: new Set(["browser", "changes", "terminal"]) }}
+      />,
+    );
+    const rail = screen.container.querySelector("[data-right-panel-rail]")!;
+    expect(rail.querySelector('[data-rail-group="browser"] [data-rail-dot]')).not.toBeNull();
+    expect(rail.querySelector('[data-rail-group="terminal"] [data-rail-dot]')).not.toBeNull();
+    expect(rail.querySelector('[data-rail-group="changes"] [data-rail-dot]')).toBeNull();
+    expect(getComputedStyle(rail.querySelector("[data-rail-dot]")!).animationName).toBe("none");
+  });
+
+  it("mod+t opens the launcher and a letter creates that surface", async () => {
+    const onAddDiff = vi.fn();
+    await using screen = await render(
+      <RightPanelTabs
+        {...railPanel(BROWSER_SURFACE, {
+          onAddDiff,
+          keybindings: compileResolvedKeybindingsConfig([
+            { key: "mod+t", command: "rightPanel.new" },
+          ]),
+        })}
+      />,
+    );
+    expect(screen.container.querySelector("[data-right-panel-rail]")).not.toBeNull();
+    await userEvent.keyboard("{Control>}t{/Control}");
+    await expect.element(page.getByRole("menu")).toBeVisible();
+    await userEvent.keyboard("d");
+    expect(onAddDiff).toHaveBeenCalledOnce();
+  });
+});
 
 describe("terminal drawer", () => {
   it("collapsed line shows the active terminal's label and status and opens on click", async () => {
