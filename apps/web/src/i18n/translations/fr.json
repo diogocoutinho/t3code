@@ -2450,6 +2450,8 @@
   "a031783a9de8cda6": "{count, plural, one {# fichier} other {# fichiers}}",
   "2e0c62a68c809676": "Hôte de l’appareil",
   "f8eb9982a2ef2897": "Ouvrir une surface",
+  "c11dd47260b668cc": "Ce terminal s’est arrêté.",
+  "62b1c82bef8d71ac": "Redémarrer le terminal",
   "ddd9257f0f91ad46": "en cours",
   "7a0d142b17cd650c": "ok",
   "1b22f70e65030317": "échec",

@@ -13,6 +13,7 @@ import {
   rightPanelGroupOf,
   rightPanelGroupTarget,
   terminalDrawerStatus,
+  terminalSurfaceMount,
   TERMINAL_DRAWER_MIN_HEIGHT,
   visibleRightPanelToolGroups,
 } from "./RightPanelTabs.logic";
@@ -305,6 +306,24 @@ describe("terminal adoption", () => {
         closingIds: [],
       }),
     ).toEqual({ adopt: ["setup"], drop: [] });
+  });
+});
+
+describe("terminal mounting", () => {
+  it("mounts only ids the server lists or this client opened, and waits while the list is unknown", () => {
+    expect(
+      terminalSurfaceMount({ terminalIds: ["a", "b"], serverIds: ["b"], claimedIds: [] }),
+    ).toEqual({ kind: "mount", terminalIds: ["b"] });
+    expect(
+      terminalSurfaceMount({ terminalIds: ["a"], serverIds: null, claimedIds: ["a"] }),
+    ).toEqual({ kind: "mount", terminalIds: ["a"] });
+    expect(terminalSurfaceMount({ terminalIds: ["a"], serverIds: null, claimedIds: [] })).toEqual({
+      kind: "pending",
+    });
+    // A saved sub-tab the server no longer lists, after a restart: attaching would start a shell.
+    expect(terminalSurfaceMount({ terminalIds: ["a"], serverIds: [], claimedIds: [] })).toEqual({
+      kind: "ended",
+    });
   });
 });
 

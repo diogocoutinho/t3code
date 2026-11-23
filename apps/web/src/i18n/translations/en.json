@@ -2450,6 +2450,8 @@
   "a031783a9de8cda6": "{count, plural, one {# file} other {# files}}",
   "2e0c62a68c809676": "Device host",
   "f8eb9982a2ef2897": "Open a surface",
+  "c11dd47260b668cc": "This terminal has ended.",
+  "62b1c82bef8d71ac": "Restart terminal",
   "ddd9257f0f91ad46": "running",
   "7a0d142b17cd650c": "ok",
   "1b22f70e65030317": "failed",

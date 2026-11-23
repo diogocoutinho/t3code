@@ -12,6 +12,8 @@ terminal's name and whether its command is running, finished, or failed. Drag it
 resize it, and use the maximize button to cover the tool above it. Closing or collapsing the drawer
 and switching tools never stop a terminal. Terminals started in the background, such as a
 worktree setup shell, appear as tabs with a dot on the terminal icon instead of opening the drawer.
+When the server restarts, its terminals end; their tabs say so and offer **Restart terminal**, which
+starts a new shell under the same tab, or **Close**.
 
 ## Choose a shell
 

@@ -194,6 +194,8 @@ interface RightPanelStoreState {
   terminalDrawerMaximized: boolean;
   unseenGroupsByThreadKey: Record<string, readonly RightPanelRailGroup[]>;
   terminalServerObservationByThreadKey: Record<string, TerminalServerObservation>;
+  /** Session only: ids the user opened that the server has not listed yet. */
+  claimedTerminalIdsByThreadKey: Record<string, readonly string[]>;
   pendingMaximizeThreadKey: string | null;
   requestMaximize: (ref: ScopedThreadRef) => void;
   consumeMaximizeRequest: (ref: ScopedThreadRef) => boolean;
@@ -568,6 +570,7 @@ type RightPanelStoreData = Pick<
 >;
 
 const EMPTY_UNSEEN: readonly RightPanelRailGroup[] = [];
+const EMPTY_IDS: readonly string[] = [];
 
 const updateUnseenGroups = (
   unseenGroupsByThreadKey: Record<string, readonly RightPanelRailGroup[]>,
@@ -640,6 +643,22 @@ const withDrawerOpen = (
     ? state.terminalDrawer
     : { ...state.terminalDrawer, open: true };
   return { ...update({ ...state, terminalDrawer }), terminalDrawer };
+};
+
+const withClaimedTerminal = (
+  state: RightPanelStoreState,
+  threadKey: string,
+  terminalId: string,
+): Partial<RightPanelStoreState> => {
+  const claimed = state.claimedTerminalIdsByThreadKey[threadKey] ?? EMPTY_IDS;
+  return claimed.includes(terminalId)
+    ? {}
+    : {
+        claimedTerminalIdsByThreadKey: {
+          ...state.claimedTerminalIdsByThreadKey,
+          [threadKey]: [...claimed, terminalId],
+        },
+      };
 };
 
 const withTerminal = (
@@ -1008,6 +1027,7 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
       terminalDrawerMaximized: false,
       unseenGroupsByThreadKey: {},
       terminalServerObservationByThreadKey: {},
+      claimedTerminalIdsByThreadKey: {},
       pendingMaximizeThreadKey: null,
       requestMaximize: (ref) => set({ pendingMaximizeThreadKey: scopedThreadKey(ref) }),
       consumeMaximizeRequest: (ref) => {
@@ -1323,12 +1343,15 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
                   ? current
                   : { ...current, surfaces: [...current.surfaces, terminalSurface(terminalId)] },
               )
-            : withDrawerOpen(state, (opened) =>
-                userAction(opened, scopedThreadKey(ref), (current) => ({
-                  ...withTerminal(current, terminalId),
-                  isOpen: true,
-                })),
-              ),
+            : {
+                ...withDrawerOpen(state, (opened) =>
+                  userAction(opened, scopedThreadKey(ref), (current) => ({
+                    ...withTerminal(current, terminalId),
+                    isOpen: true,
+                  })),
+                ),
+                ...withClaimedTerminal(state, scopedThreadKey(ref), terminalId),
+              },
         ),
       activateTerminalSurface: (ref, surfaceId) =>
         set((state) =>
@@ -1392,9 +1415,31 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
                   [threadKey]: { ids, snapshotId },
                 },
               };
-          if (adopt.length === 0 && drop.length === 0) return observation;
+          // A restarted server never saw a pending claim; a listed one no longer needs it.
+          const claimed = state.claimedTerminalIdsByThreadKey[threadKey] ?? EMPTY_IDS;
+          const restarted = previous !== undefined && previous.snapshotId !== snapshotId;
+          const stillClaimed = restarted
+            ? EMPTY_IDS
+            : claimed.filter((id) => !serverIds.includes(id));
+          let claims: Partial<RightPanelStoreState> = {};
+          if (stillClaimed.length !== claimed.length) {
+            const { [threadKey]: _claimed, ...claimedTerminalIdsByThreadKey } =
+              state.claimedTerminalIdsByThreadKey;
+            claims = {
+              claimedTerminalIdsByThreadKey:
+                stillClaimed.length === 0
+                  ? claimedTerminalIdsByThreadKey
+                  : { ...claimedTerminalIdsByThreadKey, [threadKey]: stillClaimed },
+            };
+          }
+          if (adopt.length === 0 && drop.length === 0) {
+            return observationUnchanged && stillClaimed.length === claimed.length
+              ? state
+              : { ...observation, ...claims };
+          }
           const dropped = new Set(drop);
           return {
+            ...claims,
             ...automaticUpdate(state, threadKey, (thread) => {
               const surfaces = thread.surfaces.flatMap<RightPanelSurface>((surface) => {
                 if (surface.kind !== "terminal") return [surface];
@@ -1431,8 +1476,9 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
               })),
         ),
       splitTerminal: (ref, surfaceId, terminalId, direction = "horizontal") =>
-        set((state) =>
-          withDrawerOpen(state, (opened) =>
+        set((state) => ({
+          ...withClaimedTerminal(state, scopedThreadKey(ref), terminalId),
+          ...withDrawerOpen(state, (opened) =>
             userAction(opened, scopedThreadKey(ref), (current) => ({
               ...current,
               isOpen: true,
@@ -1451,7 +1497,7 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
               }),
             })),
           ),
-        ),
+        })),
       activateTerminal: (ref, surfaceId, terminalId) =>
         set((state) =>
           userAction(state, scopedThreadKey(ref), (current) => ({
@@ -1712,10 +1758,13 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
             !(threadKey in state.userActionRevisionByThreadKey) &&
             !(threadKey in state.closeRevisionByThreadKey) &&
             !(threadKey in state.unseenGroupsByThreadKey) &&
-            !(threadKey in state.terminalServerObservationByThreadKey)
+            !(threadKey in state.terminalServerObservationByThreadKey) &&
+            !(threadKey in state.claimedTerminalIdsByThreadKey)
           ) {
             return state;
           }
+          const { [threadKey]: _claimed, ...claimedTerminalIdsByThreadKey } =
+            state.claimedTerminalIdsByThreadKey;
           const { [threadKey]: _unseen, ...unseenGroupsByThreadKey } =
             state.unseenGroupsByThreadKey;
           const { [threadKey]: _observation, ...terminalServerObservationByThreadKey } =
@@ -1734,6 +1783,7 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
             closeRevisionByThreadKey,
             unseenGroupsByThreadKey,
             terminalServerObservationByThreadKey,
+            claimedTerminalIdsByThreadKey,
           };
         }),
     }),
@@ -1857,6 +1907,13 @@ export function selectActiveTerminalSurface(
         surface.kind === "terminal" && surface.id === state.activeTerminalSurfaceId,
     ) ?? null
   );
+}
+
+export function selectClaimedTerminalIds(
+  state: Pick<RightPanelStoreState, "claimedTerminalIdsByThreadKey">,
+  ref: ScopedThreadRef | null | undefined,
+): readonly string[] {
+  return (ref && state.claimedTerminalIdsByThreadKey[scopedThreadKey(ref)]) || EMPTY_IDS;
 }
 
 /** What `terminalOpen` means: the drawer shows, in an open panel, with a terminal to show. */

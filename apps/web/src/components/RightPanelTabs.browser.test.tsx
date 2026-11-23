@@ -24,8 +24,8 @@ const terminalFixture = vi.hoisted(() => ({
   sessions: [] as Array<{ target: { terminalId: string }; state: { summary: unknown } }>,
 }));
 // The real panel attaches a terminal session; the drawer only needs a node that stays mounted.
-vi.mock("./PersistentThreadTerminals", () => ({
-  PersistentThreadTerminalPanel: (props: { surface: { id: string }; visible: boolean }) => (
+vi.mock("./RightPanelTerminalBody", () => ({
+  RightPanelTerminalBody: (props: { surface: { id: string }; visible: boolean }) => (
     <div
       data-terminal-owner="right-panel"
       data-terminal-surface={props.surface.id}

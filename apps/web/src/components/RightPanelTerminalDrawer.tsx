@@ -20,7 +20,7 @@ import type { RightPanelSurface, TerminalPanelSurface } from "~/rightPanelStore"
 import { useKnownTerminalSessions } from "~/state/terminalSessions";
 
 import type { RightPanelTerminalProps } from "./chat/RightPanelSurfaceContent";
-import { PersistentThreadTerminalPanel } from "./PersistentThreadTerminals";
+import { RightPanelTerminalBody } from "./RightPanelTerminalBody";
 import {
   clampTerminalDrawerHeight,
   TERMINAL_DRAWER_COLLAPSED_HEIGHT,
@@ -148,12 +148,12 @@ export const RightPanelTerminalDrawer = memo(function RightPanelTerminalDrawer(
   const terminalArea = props.open ? workspaceAreaProps("terminal", 5, gt("Terminal")) : {};
   const body =
     bodyMounted && activeSurface ? (
-      <PersistentThreadTerminalPanel
-        {...props.terminal}
+      <RightPanelTerminalBody
         key={activeSurface.id}
         visible={props.open}
         threadRef={props.threadRef}
         surface={activeSurface}
+        terminal={props.terminal}
       />
     ) : null;
 

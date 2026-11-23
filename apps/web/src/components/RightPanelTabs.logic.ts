@@ -156,6 +156,27 @@ export function reconcileTerminalSurfaceIds(input: {
   return { adopt, drop };
 }
 
+export type TerminalSurfaceMount =
+  | { readonly kind: "mount"; readonly terminalIds: string[] }
+  | { readonly kind: "pending" }
+  | { readonly kind: "ended" };
+
+/**
+ * Attaching to an id the server does not know starts a new shell, so a sub-tab mounts only ids
+ * the server lists or that this client opened since the server last restarted.
+ */
+export function terminalSurfaceMount(input: {
+  terminalIds: readonly string[];
+  serverIds: readonly string[] | null;
+  claimedIds: readonly string[];
+}): TerminalSurfaceMount {
+  const mountable = input.terminalIds.filter(
+    (id) => input.serverIds?.includes(id) === true || input.claimedIds.includes(id),
+  );
+  if (mountable.length > 0) return { kind: "mount", terminalIds: mountable };
+  return input.serverIds === null ? { kind: "pending" } : { kind: "ended" };
+}
+
 export type TerminalDrawerStatus = "running" | "ok" | "failed";
 
 export function terminalDrawerStatus(summary: TerminalSummary | null): TerminalDrawerStatus | null {

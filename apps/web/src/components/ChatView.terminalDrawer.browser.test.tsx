@@ -8,6 +8,7 @@ import {
 } from "@t3tools/shared/keybindings";
 import type * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as Stream from "effect/Stream";
 import { expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 
@@ -46,20 +47,20 @@ vi.mock(import("~/rpc/requestLatencyState"), async (original) => ({
   trackRpcRequestSent: () => {},
 }));
 
-// Its own file: run after other ChatView tests in one module, the launch test found no project
-// for the terminal (likely a thread shell later fake environments do not refresh).
 function resetRightPanelDrawer() {
   useRightPanelStore.setState({
     byThreadKey: {},
     terminalDrawer: { open: false, height: 280 },
     unseenGroupsByThreadKey: {},
     terminalServerObservationByThreadKey: {},
+    claimedTerminalIdsByThreadKey: {},
   });
 }
 
 function terminalRpcs() {
   const opened: string[] = [];
   const closed: string[] = [];
+  const attached: string[] = [];
   const open = answerRpc(WS_METHODS.terminalOpen, (input: { terminalId: string }) => {
     opened.push(input.terminalId);
     return Effect.never;
@@ -68,12 +69,18 @@ function terminalRpcs() {
     closed.push(input.terminalId);
     return Effect.void;
   });
+  const attach = answerRpc(WS_METHODS.terminalAttach, (input: { terminalId: string }) => {
+    attached.push(input.terminalId);
+    return Stream.never;
+  });
   return {
     opened,
     closed,
+    attached,
     [Symbol.dispose]() {
       open[Symbol.dispose]();
       close[Symbol.dispose]();
+      attach[Symbol.dispose]();
     },
   };
 }
@@ -182,5 +189,33 @@ it("switching to a thread with no terminals while the drawer is open launches no
   await expect.element(page.getByTestId("composer-editor")).toBeVisible();
   expect(useRightPanelStore.getState().terminalDrawer.open).toBe(true);
   expect(rpcs.opened).toEqual([]);
+  expect(rpcs.closed).toEqual([]);
+});
+
+it("a saved sub-tab the server no longer lists starts no shell and offers Restart", async () => {
+  resetRightPanelDrawer();
+  const first = threadWithHistory("thread-terminal-plain", 1);
+  const second = threadWithHistory("thread-terminal-stale", 1);
+  const secondRef = scopeThreadRef(ENVIRONMENT_ID, second.id);
+  // Saved by an earlier session: no claim from this client, and the server lists nothing.
+  useRightPanelStore.getState().openTerminal(secondRef, "stale");
+  useRightPanelStore.setState({ claimedTerminalIdsByThreadKey: {} });
+  using rpcs = terminalRpcs();
+  await using app = await renderThreadApp([first, second]);
+
+  await act(() => app.router.navigate({ to: `/${ENVIRONMENT_ID}/${second.id}` }));
+  const restart = page.getByRole("button", { name: "Restart terminal" });
+  await expect.element(restart).toBeVisible();
+  expect(rpcs.attached).toEqual([]);
+  expect(rpcs.opened).toEqual([]);
+  expect(
+    selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, secondRef).surfaces.map(
+      (surface) => surface.id,
+    ),
+  ).toEqual(["terminal:stale"]);
+
+  await restart.click();
+  await vi.waitFor(() => expect(rpcs.opened).toEqual(["stale"]));
+  await vi.waitFor(() => expect(rpcs.attached).toEqual(["stale"]));
   expect(rpcs.closed).toEqual([]);
 });

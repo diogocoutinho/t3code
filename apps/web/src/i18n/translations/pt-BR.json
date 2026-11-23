@@ -2450,6 +2450,8 @@
   "a031783a9de8cda6": "{count, plural, one {# arquivo} other {# arquivos}}",
   "2e0c62a68c809676": "Host do dispositivo",
   "f8eb9982a2ef2897": "Abrir uma superfície",
+  "c11dd47260b668cc": "Este terminal foi encerrado.",
+  "62b1c82bef8d71ac": "Reiniciar terminal",
   "ddd9257f0f91ad46": "ativo",
   "7a0d142b17cd650c": "ok",
   "1b22f70e65030317": "falhou",

@@ -13,6 +13,7 @@ import {
   selectActiveRightPanel,
   selectActiveRightPanelSurface,
   selectActiveTerminalSurface,
+  selectClaimedTerminalIds,
   selectRightPanelUnseenGroups,
   selectTerminalDrawerVisible,
   selectThreadPanelVisibility,
@@ -34,6 +35,7 @@ beforeEach(() => {
     terminalDrawerMaximized: false,
     unseenGroupsByThreadKey: {},
     terminalServerObservationByThreadKey: {},
+    claimedTerminalIdsByThreadKey: {},
   });
 });
 
@@ -1492,6 +1494,19 @@ describe("rightPanelStore", () => {
     store.reconcileTerminalSurfaces(refA, ["local", "x"], "manager-2", []);
     store.reconcileTerminalSurfaces(refA, ["local"], "manager-2", []);
     expect(terminalIds()).toEqual(["terminal:local"]);
+  });
+
+  it("claims a terminal the user opens until the server lists it or restarts, never one it adopts", () => {
+    const store = useRightPanelStore.getState();
+    const claimed = () => selectClaimedTerminalIds(useRightPanelStore.getState(), refA);
+    store.openTerminal(refA, "launched");
+    store.reconcileTerminalSurfaces(refA, ["adopted"], "manager-1", []);
+    expect(claimed()).toEqual(["launched"]);
+    store.reconcileTerminalSurfaces(refA, ["adopted", "launched"], "manager-1", []);
+    expect(claimed()).toEqual([]);
+    store.openTerminal(refA, "pending");
+    store.reconcileTerminalSurfaces(refA, ["adopted", "launched"], "manager-2", []);
+    expect(claimed()).toEqual([]);
   });
 
   it("terminalOpen is false while the drawer is open in a thread without terminals", () => {
