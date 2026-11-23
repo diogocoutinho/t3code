@@ -396,6 +396,22 @@ describe("rail", () => {
     expect(onAddDevice).toHaveBeenCalledOnce();
   });
 
+  it("picking a tool on the rail restores a maximized drawer, so the tool shows", async () => {
+    const onToggleMaximized = vi.fn();
+    const onAddDevice = vi.fn();
+    await using screen = await render(
+      <RightPanelTabs
+        {...railPanel(DIFF_SURFACE, { onAddDevice })}
+        terminalDrawer={drawerProps({ maximized: true, onToggleMaximized })}
+      />,
+    );
+    const rail = screen.container.querySelector("[data-right-panel-rail]")!;
+    await userEvent.click(rail.querySelector('[data-rail-group="browser"]')!);
+    await userEvent.click(rail.querySelector('[data-rail-group="devices"]')!);
+    expect(onAddDevice).toHaveBeenCalledOnce();
+    expect(onToggleMaximized).toHaveBeenCalledTimes(2);
+  });
+
   it("a group's sub-tabs list only its surfaces", async () => {
     await using screen = await render(<RightPanelTabs {...railPanel(BROWSER_SURFACE)} />);
     const tabs = [

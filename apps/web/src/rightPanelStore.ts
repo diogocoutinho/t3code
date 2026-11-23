@@ -1363,7 +1363,10 @@ export const useRightPanelStore = create<RightPanelStoreState>()(
         set((state) => {
           if (!open) {
             return state.terminalDrawer.open
-              ? { terminalDrawer: { ...state.terminalDrawer, open: false } }
+              ? {
+                  terminalDrawer: { ...state.terminalDrawer, open: false },
+                  terminalDrawerMaximized: false,
+                }
               : state;
           }
           return withDrawerOpen(state, (opened) =>

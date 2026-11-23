@@ -1331,7 +1331,14 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
     RightPanelToolGroup,
     { available: boolean; reason: string; create: () => void }
   >;
+  // A maximized drawer covers the tool, so picking one restores it.
+  const restoreFromMaximizedDrawer = () => {
+    if (props.terminalDrawer?.open && props.terminalDrawer.maximized) {
+      props.terminalDrawer.onToggleMaximized();
+    }
+  };
   const selectGroup = (group: RightPanelToolGroup) => {
+    restoreFromMaximizedDrawer();
     const target = rightPanelGroupTarget(props.surfaces, props.activeSurfaceId, group);
     if (target) {
       props.onActivate(target);
@@ -1471,7 +1478,10 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
     event.stopPropagation();
     props.onCloseSurface(surface);
   };
-  const onActivateTab = useStableCallback(props.onActivate);
+  const onActivateTab = useStableCallback((surface: RightPanelSurface) => {
+    restoreFromMaximizedDrawer();
+    props.onActivate(surface);
+  });
   const onCloseTab = useStableCallback(props.onCloseSurface);
   const onTabAuxClick = useStableCallback(handleTabAuxClick);
   const onTabContextMenu = useStableCallback(

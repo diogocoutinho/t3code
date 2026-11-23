@@ -1536,6 +1536,15 @@ describe("rightPanelStore", () => {
     expect(selectRightPanelUnseenGroups(useRightPanelStore.getState(), refA)).toEqual([]);
   });
 
+  it("collapsing the drawer ends maximize", () => {
+    const store = useRightPanelStore.getState();
+    store.openTerminal(refA, "term-1");
+    store.setTerminalDrawerMaximized(true);
+    store.setTerminalDrawerOpen(refA, false);
+    store.setTerminalDrawerOpen(refA, true);
+    expect(useRightPanelStore.getState().terminalDrawerMaximized).toBe(false);
+  });
+
   it("keeps drawer open and height global across threads and persists them, not maximize", async () => {
     const store = useRightPanelStore.getState();
     store.openTerminal(refA, "term-1");

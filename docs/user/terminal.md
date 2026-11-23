@@ -9,8 +9,8 @@ too. A thread without a terminal gets one when you open the drawer.
 
 Each terminal is a tab in the drawer. Collapsed, the drawer shows one line with the active
 terminal's name and whether its command is running, finished, or failed. Drag its top edge to
-resize it, and use the maximize button to cover the tool above it. Closing or collapsing the drawer
-and switching tools never stop a terminal. Terminals started in the background, such as a
+resize it, and use the maximize button to cover the tool above it; picking a tool or collapsing the
+drawer restores it. Closing or collapsing the drawer and switching tools never stop a terminal. Terminals started in the background, such as a
 worktree setup shell, appear as tabs with a dot on the terminal icon instead of opening the drawer.
 When the server restarts, its terminals end; their tabs say so and offer **Restart terminal**, which
 starts a new shell under the same tab, or **Close**.
