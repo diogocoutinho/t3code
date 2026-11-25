@@ -1562,6 +1562,29 @@ describe("OrchestratorMcpService", () => {
 });
 
 describe("OrchestratorMcpService provider resolution", () => {
+  it("picks the delegated task model only from a non-custom Sonnet alias", () => {
+    const model = (slug: string, extra: Partial<ServerProvider["models"][number]> = {}) => ({
+      slug,
+      name: slug,
+      isCustom: false,
+      capabilities: null,
+      ...extra,
+    });
+    const models = [
+      model("my-sonnet", { isCustom: true, aliases: ["sonnet"] }),
+      model("claude-sonnet-5", { aliases: ["sonnet-5"] }),
+      model("claude-sonnet-5-5", { aliases: ["sonnet"] }),
+    ];
+    assert.equal(
+      OrchestratorMcpService.claudeDelegatedTaskModel({ models }, "sonnet"),
+      "claude-sonnet-5-5",
+    );
+    assert.isUndefined(OrchestratorMcpService.claudeDelegatedTaskModel({ models }, "inherit"));
+    assert.isUndefined(
+      OrchestratorMcpService.claudeDelegatedTaskModel({ models: models.slice(0, 2) }, "sonnet"),
+    );
+  });
+
   const parentThreadId = ThreadId.make("thread:mcp-providers-parent");
   const childThreadId = ThreadId.make("thread:mcp-providers-child");
   const parentRunId = RunId.make("run:mcp-providers-parent");
@@ -4597,6 +4620,7 @@ describe("OrchestratorMcpService provider resolution", () => {
       Effect.gen(function* () {
         const peerId = ProviderInstanceId.make("codex-subscription-2");
         const antigravityId = ProviderInstanceId.make("antigravity");
+        const claudeId = ProviderInstanceId.make("claudeAgent");
         const driver = ProviderDriverKind.make("codex");
         const inherited = {
           instanceId: codexInstanceId,
@@ -4670,6 +4694,16 @@ describe("OrchestratorMcpService provider resolution", () => {
             name: "clear Antigravity suffix options",
             target: { providerInstanceId: antigravityId, model: "gemini-4-neon-high", options: {} },
             expected: { instanceId: antigravityId, model: "gemini-4-neon", options: [] },
+          },
+          {
+            name: "Claude target without a model runs on its Sonnet",
+            target: { providerInstanceId: claudeId },
+            expected: { instanceId: claudeId, model: "claude-sonnet-5-5" },
+          },
+          {
+            name: "explicit Claude model wins over the delegated default",
+            target: { providerInstanceId: claudeId, model: "claude-opus-5-5" },
+            expected: { instanceId: claudeId, model: "claude-opus-5-5" },
           },
           {
             name: "old Ultracode effort level",
@@ -4785,8 +4819,24 @@ describe("OrchestratorMcpService provider resolution", () => {
                   },
                 ],
               },
+              {
+                ...providerSnapshot({
+                  instanceId: claudeId,
+                  driver: ProviderDriverKind.make("claudeAgent"),
+                }),
+                models: [
+                  ["claude-opus-5-5", "opus"],
+                  ["claude-sonnet-5-5", "sonnet"],
+                ].map(([slug, alias]) => ({
+                  slug: slug!,
+                  name: slug!,
+                  aliases: [alias!],
+                  isCustom: false,
+                  capabilities: null,
+                })),
+              },
             ]),
-            adapterRegistryLayer([codexInstanceId, peerId, antigravityId]),
+            adapterRegistryLayer([codexInstanceId, peerId, antigravityId, claudeId]),
             Layer.mock(ProjectService.ProjectService)({ getById: () => Effect.succeedNone }),
             Layer.mock(SecretRequests.SecretRequests)({}),
             Layer.mock(RemoteDelegation.RemoteDelegation)({}),

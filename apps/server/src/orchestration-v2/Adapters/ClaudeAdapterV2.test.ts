@@ -496,6 +496,29 @@ describe("ClaudeAdapterV2 runtime query policy", () => {
     assert.equal(nonblocking({ MCP_CONNECTION_NONBLOCKING: "1" }, true), "1");
   });
 
+  it("runs native subagents on the instance's subagent model unless the env picks one", () => {
+    const appThread = {
+      lineage: {
+        parentThreadId: null,
+        relationshipToParent: null,
+        rootThreadId: ThreadId.make("t"),
+      },
+    };
+    const subagentModel = (
+      environment: NodeJS.ProcessEnv,
+      setting: Parameters<typeof ClaudeAdapterV2.claudeQueryEnvironment>[4],
+    ) =>
+      ClaudeAdapterV2.claudeQueryEnvironment(environment, appThread, undefined, false, setting)
+        .CLAUDE_CODE_SUBAGENT_MODEL;
+    assert.equal(subagentModel({}, "sonnet"), "sonnet");
+    assert.isUndefined(subagentModel({}, "inherit"));
+    assert.equal(subagentModel({ CLAUDE_CODE_SUBAGENT_MODEL: "haiku" }, "sonnet"), "haiku");
+    assert.isUndefined(
+      ClaudeAdapterV2.claudeQueryEnvironment({}, appThread, undefined, false, "sonnet")
+        .CLAUDE_CODE_SUBAGENT_MODEL_FORCE,
+    );
+  });
+
   it("pins Claude's auto tool search on through flag settings", () => {
     const override = ClaudeAdapterV2.claudeToolSearchOverride;
     for (const value of ["auto", "auto:10", "auto:99.5", "auto:x", "auto:Infinity"]) {

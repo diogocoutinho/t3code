@@ -2386,6 +2386,7 @@ export function claudeQueryEnvironment(
   appThread: Pick<OrchestrationV2AppThread, "lineage">,
   subagentPromptCacheTtl: "5m" | "1h" | undefined,
   resume = false,
+  subagentModel: ClaudeSettings["subagentModel"] = "inherit",
 ): NodeJS.ProcessEnv {
   const promptCacheTtl =
     appThread.lineage.relationshipToParent === "subagent" &&
@@ -2394,11 +2395,19 @@ export function claudeQueryEnvironment(
       ? subagentPromptCacheTtl
       : undefined;
   const blockingMcpConnect = resume && environment.MCP_CONNECTION_NONBLOCKING === undefined;
-  if (promptCacheTtl === undefined && !blockingMcpConnect) {
+  // Without CLAUDE_CODE_SUBAGENT_MODEL_FORCE, a model the agent names for a subagent still wins.
+  const nativeSubagentModel =
+    subagentModel === "inherit" || environment.CLAUDE_CODE_SUBAGENT_MODEL !== undefined
+      ? undefined
+      : subagentModel;
+  if (promptCacheTtl === undefined && !blockingMcpConnect && nativeSubagentModel === undefined) {
     return environment;
   }
   return {
     ...environment,
+    ...(nativeSubagentModel === undefined
+      ? {}
+      : { CLAUDE_CODE_SUBAGENT_MODEL: nativeSubagentModel }),
     ...(promptCacheTtl === undefined ? {} : { CLAUDE_CODE_PROMPT_CACHE_TTL: promptCacheTtl }),
     ...(blockingMcpConnect ? { MCP_CONNECTION_NONBLOCKING: "0" } : {}),
   };
@@ -13661,6 +13670,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                 ? yield* resolveSubagentPromptCacheTtl(turnInput.runtimePolicy.cwd)
                 : undefined,
               shouldResume,
+              adapterOptions.settings.subagentModel,
             ),
             tools: queryPolicy.tools ?? CLAUDE_CODE_PRESET_TOOLS,
             ...(mcpOverrides.allowedTools === undefined

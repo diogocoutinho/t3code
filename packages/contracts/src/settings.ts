@@ -796,6 +796,23 @@ const InstanceIdleCompaction = Schema.Literals(
   INSTANCE_IDLE_COMPACTION_MODES.map((mode) => mode.value),
 );
 
+const CLAUDE_CHILD_MODEL_CHOICES = [
+  { value: "sonnet", label: "Sonnet" },
+  { value: "inherit", label: "Same as parent" },
+] as const;
+const ClaudeChildModelChoice = Schema.Literals(
+  CLAUDE_CHILD_MODEL_CHOICES.map((choice) => choice.value),
+);
+
+const CLAUDE_AI_CONNECTOR_DEFAULTS = [
+  { value: "none", label: "None" },
+  { value: "all", label: "All" },
+] as const;
+export const ClaudeAiConnectorDefault = Schema.Literals(
+  CLAUDE_AI_CONNECTOR_DEFAULTS.map((choice) => choice.value),
+);
+export type ClaudeAiConnectorDefault = typeof ClaudeAiConnectorDefault.Type;
+
 export const ClaudeSettings = makeProviderSettingsSchema(
   {
     enabled: Schema.Boolean.pipe(
@@ -860,9 +877,57 @@ export const ClaudeSettings = makeProviderSettingsSchema(
         },
       }),
     ),
+    subagentModel: ClaudeChildModelChoice.pipe(
+      Schema.withDecodingDefault(Effect.succeed("sonnet" as const)),
+      Schema.annotateKey({
+        title: "Subagent model",
+        description:
+          "Model for Claude's built-in subagents. A model the agent names for a subagent still wins.",
+        providerSettingsForm: {
+          control: "select",
+          options: CLAUDE_CHILD_MODEL_CHOICES,
+          clearWhenEmpty: "omit",
+        },
+      }),
+    ),
+    delegatedTaskModel: ClaudeChildModelChoice.pipe(
+      Schema.withDecodingDefault(Effect.succeed("sonnet" as const)),
+      Schema.annotateKey({
+        title: "Delegated task model",
+        description:
+          "Model for tasks delegated to this instance when the agent names none. Falls back to the parent's model when this instance has no Sonnet.",
+        providerSettingsForm: {
+          control: "select",
+          options: CLAUDE_CHILD_MODEL_CHOICES,
+          clearWhenEmpty: "omit",
+        },
+      }),
+    ),
+    claudeAiConnectors: ClaudeAiConnectorDefault.pipe(
+      Schema.withDecodingDefault(Effect.succeed("none" as const)),
+      Schema.annotateKey({
+        title: "claude.ai connectors",
+        description:
+          "Connectors loaded in projects that have not picked their own. Each loaded connector adds context to every message.",
+        providerSettingsForm: {
+          control: "select",
+          options: CLAUDE_AI_CONNECTOR_DEFAULTS,
+          clearWhenEmpty: "omit",
+        },
+      }),
+    ),
   },
   {
-    order: ["binaryPath", "homePath", "autoCompactWindow", "idleCompaction", "launchArgs"],
+    order: [
+      "binaryPath",
+      "homePath",
+      "autoCompactWindow",
+      "idleCompaction",
+      "subagentModel",
+      "delegatedTaskModel",
+      "claudeAiConnectors",
+      "launchArgs",
+    ],
   },
 );
 export type ClaudeSettings = typeof ClaudeSettings.Type;
