@@ -577,6 +577,8 @@ describe("ClaudeAdapterV2 runtime query policy", () => {
       deniedMcpServers: [{ serverName: "claude.ai Gmail" }, { serverName: "claude.ai Notion" }],
     });
     assert.isUndefined(ClaudeAdapterV2.claudeAiConnectorSettings(known, known));
+    // Without discovered names nothing can be denied by name.
+    assert.isUndefined(ClaudeAdapterV2.claudeAiConnectorSettings(["claude.ai Gmail"], []));
 
     const options = ClaudeAdapterV2.makeClaudeQueryOptions({
       modelSelection: CLAUDE_TEST_MODEL_SELECTION,
@@ -12963,7 +12965,11 @@ describe("ClaudeAdapterV2 background wake turns", () => {
                 tools: { type: "preset", preset: "claude_code" },
                 permissionMode: "bypassPermissions",
                 allowDangerouslySkipPermissions: true,
-                settings: { showThinkingSummaries: true, disableClaudeAiConnectors: true },
+                settings: {
+                  showThinkingSummaries: true,
+                  disableClaudeAiConnectors: true,
+                  autoCompactWindow: 200_000,
+                },
                 sessionId: WAKE_NATIVE_SESSION,
               },
             },

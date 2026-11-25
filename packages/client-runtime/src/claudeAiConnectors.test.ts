@@ -1,5 +1,5 @@
 import { ProviderDriverKind, ProviderInstanceId, type ServerProvider } from "@t3tools/contracts";
-import { assert, describe, it } from "vitest";
+import { assert, describe, it } from "vite-plus/test";
 
 import { claudeAiConnectorChoices, withClaudeAiConnector } from "./claudeAiConnectors.ts";
 
@@ -9,7 +9,7 @@ const provider = {
   driver: ProviderDriverKind.make("claudeAgent"),
   enabled: true,
   claudeAiConnectors: ["claude.ai Notion", "claude.ai Gmail"],
-} as ServerProvider;
+} as unknown as ServerProvider;
 
 describe("claudeAiConnectorChoices", () => {
   it("follows the Claude instance default until the project stores its own list", () => {

@@ -8,8 +8,9 @@ import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Queue from "effect/Queue";
-import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
+import * as Semaphore from "effect/Semaphore";
+import * as Clock from "effect/Clock";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { HttpClient } from "effect/http";
@@ -180,13 +181,41 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
     // names come from a separate discovery query, at most hourly.
     const driverScope = yield* Effect.scope;
     const knownClaudeAiConnectors = yield* Ref.make<ReadonlyArray<string>>([]);
-    const discoverConnectors = yield* Effect.cachedWithTTL(
-      discoverClaudeAiConnectors(effectiveConfig, processEnv, stateDir).pipe(
-        Effect.option,
-        Effect.provideService(FileSystem.FileSystem, fileSystem),
-        Effect.provideService(Path.Path, path),
+    // Only a discovery that found connectors starts the TTL; failures and empty lists retry.
+    const connectorsDiscoveredAt = yield* Ref.make<number | undefined>(undefined);
+    const connectorDiscoveryLock = yield* Semaphore.make(1);
+    const discoverConnectors = connectorDiscoveryLock.withPermits(1)(
+      Effect.gen(function* () {
+        const now = yield* Clock.currentTimeMillis;
+        const discoveredAt = yield* Ref.get(connectorsDiscoveredAt);
+        if (
+          discoveredAt !== undefined &&
+          now - discoveredAt < Duration.toMillis(CLAUDE_AI_CONNECTOR_DISCOVERY_TTL)
+        ) {
+          return false;
+        }
+        const discovered = yield* discoverClaudeAiConnectors(
+          effectiveConfig,
+          processEnv,
+          stateDir,
+        ).pipe(
+          Effect.provideService(FileSystem.FileSystem, fileSystem),
+          Effect.provideService(Path.Path, path),
+          Effect.orElseSucceed((): ReadonlyArray<string> => []),
+        );
+        if (discovered.length === 0) return false;
+        yield* Ref.set(connectorsDiscoveredAt, now);
+        const previous = yield* Ref.getAndSet(knownClaudeAiConnectors, discovered);
+        return previous.join("\n") !== discovered.join("\n");
+      }),
+    );
+    // A project that allows some connectors needs every name to deny the rest, so a session
+    // waits for a discovery that has not found any yet.
+    const awaitKnownClaudeAiConnectors = Ref.get(knownClaudeAiConnectors).pipe(
+      Effect.filterOrElse(
+        (known) => known.length > 0,
+        () => discoverConnectors.pipe(Effect.andThen(Ref.get(knownClaudeAiConnectors))),
       ),
-      CLAUDE_AI_CONNECTOR_DISCOVERY_TTL,
     );
     // Retain reports until the registry subscribes; end its listener on teardown.
     const workspaceRescans = yield* Queue.unbounded<string, Cause.Done>();
@@ -204,7 +233,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
         scopedLimitNames,
         onUsageLimits: (update) => snapshot.applyUsageLimits(update),
         onSessionInit: (cwd) => Queue.offer(workspaceRescans, cwd).pipe(Effect.asVoid),
-        knownClaudeAiConnectors: Ref.get(knownClaudeAiConnectors),
+        knownClaudeAiConnectors: awaitKnownClaudeAiConnectors,
         modelCatalog,
         routeModelCatalog: modelRoutes.route,
       },
@@ -290,17 +319,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
     );
 
     const refreshClaudeAiConnectors: Effect.Effect<void> = discoverConnectors.pipe(
-      Effect.flatMap((discovered) =>
-        Option.isNone(discovered)
-          ? Effect.void
-          : Ref.getAndSet(knownClaudeAiConnectors, discovered.value).pipe(
-              Effect.flatMap((previous) =>
-                previous.join("\n") === discovered.value.join("\n")
-                  ? Effect.void
-                  : snapshot.refresh.pipe(Effect.ignore),
-              ),
-            ),
-      ),
+      Effect.flatMap((changed) => (changed ? snapshot.refresh.pipe(Effect.ignore) : Effect.void)),
     );
     const checkProvider = catalogService.refreshInBackground.pipe(
       Effect.andThen(

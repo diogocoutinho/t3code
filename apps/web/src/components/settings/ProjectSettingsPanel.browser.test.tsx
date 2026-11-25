@@ -122,6 +122,10 @@ vi.mock(import("./ProjectDefaultsSettings"), async (original) => ({
   ...(await original()),
   ProjectDefaultsSettings: (() => null) as never,
 }));
+vi.mock(import("./ProjectClaudeConnectorsSettings"), async (original) => ({
+  ...(await original()),
+  ProjectClaudeConnectorsSettings: (() => null) as never,
+}));
 vi.mock(import("./ProjectActionsSettings"), async (original) => ({
   ...(await original()),
   ProjectActionsSettings: (() => null) as never,

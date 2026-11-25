@@ -2579,17 +2579,9 @@ export function makeClaudeQueryOptions(input: {
       ? undefined
       : input.settings.autoCompactWindow;
   // Without the T3 setting, only the settings key: env and Claude's own settings still win there.
-  // A window the model cannot exceed changes nothing, so it is left out.
-  const modelWindowTokens =
-    input.modelCatalog === undefined
-      ? undefined
-      : resolveClaudeCatalogContextWindowTokens(input.modelCatalog, input.modelSelection);
   const settingsAutoCompactWindow =
     autoCompactWindow ??
-    (input.resolvedAutoCompactWindow === undefined ||
-    input.resolvedAutoCompactWindow.length === 0 ||
-    (modelWindowTokens !== undefined &&
-      Number(input.resolvedAutoCompactWindow) >= modelWindowTokens)
+    (input.resolvedAutoCompactWindow === undefined || input.resolvedAutoCompactWindow.length === 0
       ? undefined
       : input.resolvedAutoCompactWindow);
   const compactQuerySettings =
@@ -13668,10 +13660,14 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               ],
               { concurrency: "unbounded" },
             );
-          const claudeAiConnectors = claudeAiConnectorSettings(
+          const allowedClaudeAiConnectors =
             (yield* projectClaudeAiConnectors) ??
-              (adapterOptions.settings.claudeAiConnectors === "all" ? "all" : []),
-            yield* adapterOptions.knownClaudeAiConnectors ?? Effect.succeed([]),
+            (adapterOptions.settings.claudeAiConnectors === "all" ? "all" : []);
+          const claudeAiConnectors = claudeAiConnectorSettings(
+            allowedClaudeAiConnectors,
+            allowedClaudeAiConnectors === "all" || allowedClaudeAiConnectors.length === 0
+              ? []
+              : yield* adapterOptions.knownClaudeAiConnectors ?? Effect.succeed([]),
           );
           const closedExistingNativeThreadId = existing !== null ? existing.nativeThreadId : null;
           clearedNativeSessions.delete(nativeThreadId);

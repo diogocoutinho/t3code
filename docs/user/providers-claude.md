@@ -53,7 +53,8 @@ T3 Code uses the Claude configuration on the connected server.
 Set **Auto-compact after** in the Claude provider settings to an integer between
 `100000` and `1000000`. For example, `300000` asks Claude to summarize at about
 300,000 tokens. This changes when compaction happens, not the model's context
-window. Leave it empty for Claude Code's default.
+window. Left empty, Claude compacts at 200,000 tokens unless your own Claude settings or
+`CLAUDE_CODE_AUTO_COMPACT_WINDOW` set a window.
 
 You can also send `/compact` in an existing conversation. Claude Code also
 compacts automatically. To see context usage, see
@@ -117,6 +118,22 @@ To show Claude task lists in the web and desktop apps, add
 `CLAUDE_CODE_ENABLE_TODO_TOOLS=1` under **Variables** in the Claude instance's
 **Environment** section in **Settings > Providers**. Each update shows as a Tasks
 row in the thread; open it to see every step.
+
+## Choose claude.ai connectors per project
+
+Every claude.ai connector Claude loads adds its instructions and tool names to every message, so
+projects load none by default. To allow some, open the project in **Settings**, find
+**claude.ai connectors**, and switch on the ones it uses. The list appears after Claude signs in to
+claude.ai. Changes apply when a thread's Claude session next starts. To load every connector in
+projects that haven't picked their own, set **claude.ai connectors** to **All** in the Claude
+provider settings.
+
+## Subagent and delegated task models
+
+Claude's built-in subagents run on Sonnet by default, and so do tasks an agent delegates to a
+Claude instance without naming a model. A model the agent names still wins. To use the parent's
+model instead, set **Subagent model** or **Delegated task model** to **Same as parent** in the
+Claude provider settings.
 
 ## Sign in to an MCP server
 

@@ -1303,7 +1303,7 @@ export const ProjectSettingsOverrides = Schema.Struct({
   defaultProjectScripts: Schema.optionalKey(Schema.Array(ProjectScript)),
   enableAgentBrowserAccess: Schema.optionalKey(Schema.Boolean),
   enableAgentDeviceAccess: Schema.optionalKey(Schema.Boolean),
-  claudeAiConnectorAllowlist: Schema.optionalKey(Schema.NullOr(ClaudeAiConnectorAllowlist)),
+  claudeAiConnectorAllowlist: Schema.optionalKey(ClaudeAiConnectorAllowlist),
   textGenerationModelSelection: Schema.optionalKey(ModelSelection),
   threadTitleInstructions: Schema.optionalKey(TrimmedString),
   sourceControlWriterModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
