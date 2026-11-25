@@ -812,6 +812,7 @@ export const ClaudeAiConnectorDefault = Schema.Literals(
   CLAUDE_AI_CONNECTOR_DEFAULTS.map((choice) => choice.value),
 );
 export type ClaudeAiConnectorDefault = typeof ClaudeAiConnectorDefault.Type;
+export const ClaudeAiConnectorAllowlist = Schema.Array(TrimmedNonEmptyString);
 
 export const ClaudeSettings = makeProviderSettingsSchema(
   {
@@ -1263,6 +1264,7 @@ export const PROJECT_SCOPED_SERVER_SETTING_KEYS = [
   "defaultProjectScripts",
   "enableAgentBrowserAccess",
   "enableAgentDeviceAccess",
+  "claudeAiConnectorAllowlist",
   "textGenerationModelSelection",
   "threadTitleInstructions",
   "sourceControlWriterModelSelection",
@@ -1301,6 +1303,7 @@ export const ProjectSettingsOverrides = Schema.Struct({
   defaultProjectScripts: Schema.optionalKey(Schema.Array(ProjectScript)),
   enableAgentBrowserAccess: Schema.optionalKey(Schema.Boolean),
   enableAgentDeviceAccess: Schema.optionalKey(Schema.Boolean),
+  claudeAiConnectorAllowlist: Schema.optionalKey(Schema.NullOr(ClaudeAiConnectorAllowlist)),
   textGenerationModelSelection: Schema.optionalKey(ModelSelection),
   threadTitleInstructions: Schema.optionalKey(TrimmedString),
   sourceControlWriterModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
@@ -1530,6 +1533,10 @@ export const ServerSettings = Schema.Struct({
   projectSettingsFolded: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
 
   enableAgentDeviceAccess: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
+  /** A project's claude.ai connectors by display name. Null follows the Claude instance default. */
+  claudeAiConnectorAllowlist: Schema.NullOr(ClaudeAiConnectorAllowlist).pipe(
+    Schema.withDecodingDefault(Effect.succeed(null)),
+  ),
   /** Enabling the Device panel must not grant providers device control. */
   enableDeviceSupport: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   deviceOnboardingCompleted: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
@@ -1990,6 +1997,7 @@ export const ServerSettingsPatch = Schema.Struct({
     ),
   ),
   enableAgentDeviceAccess: Schema.optionalKey(Schema.Boolean),
+  claudeAiConnectorAllowlist: Schema.optionalKey(Schema.NullOr(ClaudeAiConnectorAllowlist)),
   enableDeviceSupport: Schema.optionalKey(Schema.Boolean),
   deviceOnboardingCompleted: Schema.optionalKey(Schema.Boolean),
   deviceHosts: Schema.optionalKey(SshDeviceHostConfigs),

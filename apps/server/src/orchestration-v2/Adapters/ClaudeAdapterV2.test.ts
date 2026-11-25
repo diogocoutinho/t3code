@@ -567,6 +567,37 @@ describe("ClaudeAdapterV2 runtime query policy", () => {
     );
   });
 
+  it("loads only the claude.ai connectors a project allows", () => {
+    const known = ["claude.ai Gmail", "claude.ai EasyDev HUB", "claude.ai Notion"];
+    assert.isUndefined(ClaudeAdapterV2.claudeAiConnectorSettings("all", known));
+    assert.deepEqual(ClaudeAdapterV2.claudeAiConnectorSettings([], known), {
+      disableClaudeAiConnectors: true,
+    });
+    assert.deepEqual(ClaudeAdapterV2.claudeAiConnectorSettings(["claude.ai EasyDev HUB"], known), {
+      deniedMcpServers: [{ serverName: "claude.ai Gmail" }, { serverName: "claude.ai Notion" }],
+    });
+    assert.isUndefined(ClaudeAdapterV2.claudeAiConnectorSettings(known, known));
+
+    const options = ClaudeAdapterV2.makeClaudeQueryOptions({
+      modelSelection: CLAUDE_TEST_MODEL_SELECTION,
+      nativeThreadId: "native-connectors",
+      resume: false,
+      cwd: "/workspace",
+      settings: DEFAULT_CLAUDE_SETTINGS,
+      sdkSettings: { deniedMcpServers: [{ serverName: "local" }] },
+      claudeAiConnectors: { deniedMcpServers: [{ serverName: "claude.ai Gmail" }] },
+    });
+    const settings = options.settings as {
+      deniedMcpServers?: ReadonlyArray<{ serverName: string }>;
+      disableClaudeAiConnectors?: boolean;
+    };
+    assert.deepEqual(settings.deniedMcpServers, [
+      { serverName: "local" },
+      { serverName: "claude.ai Gmail" },
+    ]);
+    assert.isUndefined(settings.disableClaudeAiConnectors);
+  });
+
   it("sends a resolved auto-compact window only as a settings key", () => {
     const options = ClaudeAdapterV2.makeClaudeQueryOptions({
       modelSelection: CLAUDE_TEST_MODEL_SELECTION,
@@ -12932,7 +12963,7 @@ describe("ClaudeAdapterV2 background wake turns", () => {
                 tools: { type: "preset", preset: "claude_code" },
                 permissionMode: "bypassPermissions",
                 allowDangerouslySkipPermissions: true,
-                settings: { showThinkingSummaries: true },
+                settings: { showThinkingSummaries: true, disableClaudeAiConnectors: true },
                 sessionId: WAKE_NATIVE_SESSION,
               },
             },

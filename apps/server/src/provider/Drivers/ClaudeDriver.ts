@@ -8,6 +8,7 @@ import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Queue from "effect/Queue";
+import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
@@ -31,6 +32,7 @@ import * as ClaudeResetCredits from "../claudeResetCredits.ts";
 import * as ResetCreditCoordinator from "../resetCreditCoordinator.ts";
 import {
   checkClaudeProviderStatus,
+  discoverClaudeAiConnectors,
   makePendingClaudeProvider,
   probeClaudeCapabilities,
   probeClaudeWorkspaceSnapshot,
@@ -70,6 +72,7 @@ const decodeClaudeSettings = Schema.decodeSync(ClaudeSettings);
 
 const DRIVER_KIND = ProviderDriverKind.make("claudeAgent");
 const CAPABILITIES_PROBE_TTL = Duration.minutes(5);
+const CLAUDE_AI_CONNECTOR_DISCOVERY_TTL = Duration.hours(1);
 
 const withoutUsage = (capabilities: ClaudeCapabilitiesProbe): ClaudeCapabilitiesProbe => {
   const result = { ...capabilities };
@@ -173,6 +176,18 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
         ),
       stateDir,
     );
+    // Sessions deny connectors by name, and a session that disables them never lists them, so the
+    // names come from a separate discovery query, at most hourly.
+    const driverScope = yield* Effect.scope;
+    const knownClaudeAiConnectors = yield* Ref.make<ReadonlyArray<string>>([]);
+    const discoverConnectors = yield* Effect.cachedWithTTL(
+      discoverClaudeAiConnectors(effectiveConfig, processEnv, stateDir).pipe(
+        Effect.option,
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.provideService(Path.Path, path),
+      ),
+      CLAUDE_AI_CONNECTOR_DISCOVERY_TTL,
+    );
     // Retain reports until the registry subscribes; end its listener on teardown.
     const workspaceRescans = yield* Queue.unbounded<string, Cause.Done>();
     yield* Effect.addFinalizer(() => Queue.end(workspaceRescans));
@@ -189,6 +204,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
         scopedLimitNames,
         onUsageLimits: (update) => snapshot.applyUsageLimits(update),
         onSessionInit: (cwd) => Queue.offer(workspaceRescans, cwd).pipe(Effect.asVoid),
+        knownClaudeAiConnectors: Ref.get(knownClaudeAiConnectors),
         modelCatalog,
         routeModelCatalog: modelRoutes.route,
       },
@@ -273,6 +289,19 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
       Effect.map((result) => result.capabilities),
     );
 
+    const refreshClaudeAiConnectors: Effect.Effect<void> = discoverConnectors.pipe(
+      Effect.flatMap((discovered) =>
+        Option.isNone(discovered)
+          ? Effect.void
+          : Ref.getAndSet(knownClaudeAiConnectors, discovered.value).pipe(
+              Effect.flatMap((previous) =>
+                previous.join("\n") === discovered.value.join("\n")
+                  ? Effect.void
+                  : snapshot.refresh.pipe(Effect.ignore),
+              ),
+            ),
+      ),
+    );
     const checkProvider = catalogService.refreshInBackground.pipe(
       Effect.andThen(
         modelCatalog.pipe(
@@ -298,6 +327,18 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv, Path.
               : Effect.void,
           ),
           Effect.map(stampIdentity),
+          Effect.tap((provider) =>
+            provider.enabled && provider.auth.status === "authenticated"
+              ? refreshClaudeAiConnectors.pipe(Effect.forkIn(driverScope))
+              : Effect.void,
+          ),
+          Effect.flatMap((provider) =>
+            Ref.get(knownClaudeAiConnectors).pipe(
+              Effect.map((claudeAiConnectors) =>
+                claudeAiConnectors.length === 0 ? provider : { ...provider, claudeAiConnectors },
+              ),
+            ),
+          ),
         ),
       ),
       // Disabled, failed version checks and interruption never reach the probe.

@@ -3754,6 +3754,8 @@
   "006f2c2416a56768": "Förhandsvisningswebbläsare",
   "19e1f74805f4a1fb": "Agenters webbläsaråtkomst",
   "74d09db9719594eb": "Låt agenter använda förhandsvisningswebbläsaren i appen.",
+  "96bc31f17706e58e": "claude.ai-anslutningar",
+  "55686c1600ed103b": "Varje aktiverad anslutning lägger till sina instruktioner och verktygsnamn i varje meddelande. Ändringar gäller när en tråds Claude-session startar nästa gång.",
   "13087312bc6a0b45": "Pull requests",
   "efb65f53a2382026": "Ta bort agentmedförfattare vid merge",
   "88631d9ea293eccd": "Ta bort igenkända agentmedförfattare från merge- och squash-meddelanden hos värdar som stöder det, och behåll mänskliga medförfattare. Gäller även automatisk merge. Gäller inte merge-köer, stack-merges och befintliga commits.",

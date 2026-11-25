@@ -44,7 +44,12 @@ import {
 } from "./settings-scoped-server";
 import { PullRequestGlyph } from "../pull-requests/pullRequestGlyphs";
 import { AutoSettleSettingsRows } from "./ThreadSettingsSections";
+import { useEnvironmentServerConfig } from "../../state/entities";
 import { supportsSharedSettingsSync } from "@t3tools/client-runtime/state/shared-settings";
+import {
+  claudeAiConnectorChoices,
+  withClaudeAiConnector,
+} from "@t3tools/client-runtime/claudeAiConnectors";
 
 type SettingsPage = "threads" | "source-control" | "worktrees" | "maintenance";
 
@@ -61,6 +66,7 @@ const PAGE_PROJECT_KEYS: Record<SettingsPage, readonly ProjectScopedServerSettin
     "defaultRuntimeMode",
     "responseStreamingMode",
     "enableAgentBrowserAccess",
+    "claudeAiConnectorAllowlist",
     "sidebarAutoSettleOnMerge",
     "sidebarAutoSettleAfterDays",
   ],
@@ -285,6 +291,16 @@ function ServerSettingsDetail(props: { readonly page: SettingsPage }) {
     targets.map((target) => target.environment.serverConfig.managedPolicy),
     m,
   );
+  // One project at a time: the list is a project's own choice.
+  const connectorServerConfig = useEnvironmentServerConfig(
+    projectSelected && displayTargets.length === 1 && reference !== null
+      ? reference.environment.environmentId
+      : null,
+  );
+  const connectorChoices =
+    connectorServerConfig === null || reference === null
+      ? null
+      : claudeAiConnectorChoices(connectorServerConfig.providers, reference.settings);
   const disabledFor = (key: string) =>
     disabled ||
     managed(key) !== undefined ||
@@ -407,6 +423,32 @@ function ServerSettingsDetail(props: { readonly page: SettingsPage }) {
                     onValueChange={(value) => write({ enableAgentBrowserAccess: value })}
                   />
                 </SettingsSection>
+                {connectorChoices !== null && connectorChoices.known.length > 0 ? (
+                  <SettingsSection
+                    title={gt("claude.ai connectors")}
+                    footer={gt(
+                      "Each enabled connector adds its instructions and tool names to every message. Changes apply when a thread's Claude session next starts.",
+                    )}
+                  >
+                    {connectorChoices.known.map((name) => (
+                      <SettingsSwitchRow
+                        key={name}
+                        label={name}
+                        value={connectorChoices.allowed.has(name)}
+                        disabled={disabledFor("claudeAiConnectorAllowlist")}
+                        onValueChange={(enabled) =>
+                          write({
+                            claudeAiConnectorAllowlist: withClaudeAiConnector(
+                              connectorChoices,
+                              name,
+                              enabled,
+                            ),
+                          })
+                        }
+                      />
+                    ))}
+                  </SettingsSection>
+                ) : null}
                 <AutoSettleSettingsRows write={write} pending={pendingWrites > 0} />
               </>
             ) : null}

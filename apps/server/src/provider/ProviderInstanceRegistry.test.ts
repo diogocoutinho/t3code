@@ -113,6 +113,9 @@ const makeClaudeConfig = (overrides: Partial<ClaudeSettings>): ClaudeSettings =>
   customModels: [],
   launchArgs: "",
   autoCompactWindow: "",
+  subagentModel: "sonnet",
+  delegatedTaskModel: "sonnet",
+  claudeAiConnectors: "none",
   idleCompaction: "default",
   ...overrides,
 });
@@ -614,36 +617,43 @@ describe("ProviderInstanceRegistry — multi-instance codex slice", () => {
       let probeCount = 0;
       let successfulProbeCount = 0;
       let failProbe = false;
-      const query = vi.spyOn(ClaudeSdk, "query").mockImplementation(
-        () =>
-          ({
-            initializationResult: () => {
-              probeCount++;
-              if (failProbe) return Promise.reject(new Error("initialization failed"));
-              successfulProbeCount++;
-              return Promise.resolve({
-                commands: [
-                  {
-                    name: successfulProbeCount === 1 ? "last-good" : "recovered",
-                    description: "",
-                    argumentHint: "",
+      const query = vi.spyOn(ClaudeSdk, "query").mockImplementation((params) =>
+        // Connector discovery runs without strictMcpConfig; only capability probes count here.
+        params.options?.strictMcpConfig !== true
+          ? ({
+              initializationResult: () => Promise.resolve({}),
+              mcpServerStatus: () => Promise.resolve([]),
+            } as unknown as ReturnType<typeof ClaudeSdk.query>)
+          : ({
+              initializationResult: () => {
+                probeCount++;
+                if (failProbe) return Promise.reject(new Error("initialization failed"));
+                successfulProbeCount++;
+                return Promise.resolve({
+                  commands: [
+                    {
+                      name: successfulProbeCount === 1 ? "last-good" : "recovered",
+                      description: "",
+                      argumentHint: "",
+                    },
+                  ],
+                  account: {
+                    email:
+                      successfulProbeCount === 1
+                        ? "account-a@example.com"
+                        : "account-b@example.com",
+                    subscriptionType: "pro",
+                    tokenSource: "oauth",
                   },
-                ],
-                account: {
-                  email:
-                    successfulProbeCount === 1 ? "account-a@example.com" : "account-b@example.com",
-                  subscriptionType: "pro",
-                  tokenSource: "oauth",
-                },
-              });
-            },
-            usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET: async () => ({
-              rate_limits_available: true,
-              rate_limits: {
-                five_hour: { utilization: 12, resets_at: "2026-07-18T14:39:00Z" },
+                });
               },
-            }),
-          }) as ReturnType<typeof ClaudeSdk.query>,
+              usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET: async () => ({
+                rate_limits_available: true,
+                rate_limits: {
+                  five_hour: { utilization: 12, resets_at: "2026-07-18T14:39:00Z" },
+                },
+              }),
+            } as ReturnType<typeof ClaudeSdk.query>),
       );
       yield* Effect.addFinalizer(() => Effect.sync(() => query.mockRestore()));
 

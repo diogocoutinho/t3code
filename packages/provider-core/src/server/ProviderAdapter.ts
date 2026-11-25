@@ -569,6 +569,8 @@ export interface ProviderAdapterV2OpenSessionInput {
   readonly runtimePolicy: ProviderAdapterV2RuntimePolicy;
   /** Labs flag, read live: emit `prompt_suggestion.updated` after completed turns, where the provider can. */
   readonly promptSuggestions?: Effect.Effect<boolean>;
+  /** Claude only, read per query: the project's claude.ai connectors; null follows the instance. */
+  readonly claudeAiConnectorAllowlist?: Effect.Effect<ReadonlyArray<string> | null>;
   readonly resumeFromSession?: OrchestrationV2ProviderSession;
   readonly initialNativeThreadId?: string;
   readonly initialProviderItemIdentityVersion?: 2;
