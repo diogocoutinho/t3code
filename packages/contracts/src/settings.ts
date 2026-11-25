@@ -773,6 +773,8 @@ export const CodexSettings = makeProviderSettingsSchema(
 export type CodexSettings = typeof CodexSettings.Type;
 
 const CLAUDE_AUTO_COMPACT_WINDOW_PATTERN = /^(?:|[1-9]\d{5}|1000000)$/;
+/** Used when neither this setting nor Claude's own settings or env pick a window. */
+export const CLAUDE_DEFAULT_AUTO_COMPACT_WINDOW = "200000";
 
 export const IDLE_COMPACTION_MODES = [
   { value: "onReturn", label: "When you return" },
@@ -838,9 +840,9 @@ export const ClaudeSettings = makeProviderSettingsSchema(
       Schema.annotateKey({
         title: "Auto-compact after",
         description:
-          "Compact after 100,000 to 1,000,000 tokens. Leave empty to use Claude's default.",
+          "Compact after 100,000 to 1,000,000 tokens. Empty uses 200,000 unless Claude's own settings set a window.",
         providerSettingsForm: {
-          placeholder: "e.g. 300000",
+          placeholder: "200000",
           clearWhenEmpty: "omit",
         },
       }),

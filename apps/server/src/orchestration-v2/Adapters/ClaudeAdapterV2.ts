@@ -97,6 +97,7 @@ import {
   type AgentFeedbackMode,
   type ChatAttachment,
   PROVIDER_SEND_TURN_MAX_FILE_BYTES,
+  CLAUDE_DEFAULT_AUTO_COMPACT_WINDOW,
   ClaudeSettings,
   TrimmedNonEmptyString,
   defaultInstanceIdForDriver,
@@ -2490,6 +2491,8 @@ export function makeClaudeQueryOptions(input: {
   readonly appendSystemPromptFileText?: string;
   // Flag settings, because a user's settings.json env beats the process env in Claude Code.
   readonly toolSearchOverride?: "true";
+  /** The window resolveAutoCompactWindow picked when the T3 setting is empty. */
+  readonly resolvedAutoCompactWindow?: string;
 }): ClaudeAgentSdkQueryOptions {
   const compiledSelection = compileClaudeModelSelection(input.modelSelection, input.modelCatalog);
   const {
@@ -2542,12 +2545,26 @@ export function makeClaudeQueryOptions(input: {
     input.settings?.autoCompactWindow === undefined || input.settings.autoCompactWindow.length === 0
       ? undefined
       : input.settings.autoCompactWindow;
+  // Without the T3 setting, only the settings key: env and Claude's own settings still win there.
+  // A window the model cannot exceed changes nothing, so it is left out.
+  const modelWindowTokens =
+    input.modelCatalog === undefined
+      ? undefined
+      : resolveClaudeCatalogContextWindowTokens(input.modelCatalog, input.modelSelection);
+  const settingsAutoCompactWindow =
+    autoCompactWindow ??
+    (input.resolvedAutoCompactWindow === undefined ||
+    input.resolvedAutoCompactWindow.length === 0 ||
+    (modelWindowTokens !== undefined &&
+      Number(input.resolvedAutoCompactWindow) >= modelWindowTokens)
+      ? undefined
+      : input.resolvedAutoCompactWindow);
   const compactQuerySettings =
-    autoCompactWindow === undefined
+    settingsAutoCompactWindow === undefined
       ? querySettings
       : ({
           ...(typeof querySettings === "object" && querySettings !== null ? querySettings : {}),
-          autoCompactWindow: Number(autoCompactWindow),
+          autoCompactWindow: Number(settingsAutoCompactWindow),
         } as ClaudeSdkSettings);
   // Claude Code expands a bare alias to its own model, so a custom model with an alias's name
   // pins the alias to itself.
@@ -6172,7 +6189,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
       const value = windowFrom(settings);
       if (value !== undefined) return value;
     }
-    return "";
+    return CLAUDE_DEFAULT_AUTO_COMPACT_WINDOW;
   });
 
   const userInvocableSkills = (cwd: string | null) =>
@@ -13580,18 +13597,24 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
           }
 
           // Read before closing the live process so a bad path leaves it running.
-          const [appendSystemPromptFileText, toolSearchOverride] = yield* Effect.all(
-            [
-              readClaudeAppendSystemPromptFile({
-                settings: adapterOptions.settings,
-                cwd: turnInput.runtimePolicy.cwd,
-                fileSystem,
-                path,
-              }),
-              resolveToolSearchOverride(turnInput.runtimePolicy.cwd, launchArgSettings),
-            ],
-            { concurrency: "unbounded" },
-          );
+          const [appendSystemPromptFileText, toolSearchOverride, resolvedAutoCompactWindow] =
+            yield* Effect.all(
+              [
+                readClaudeAppendSystemPromptFile({
+                  settings: adapterOptions.settings,
+                  cwd: turnInput.runtimePolicy.cwd,
+                  fileSystem,
+                  path,
+                }),
+                resolveToolSearchOverride(turnInput.runtimePolicy.cwd, launchArgSettings),
+                resolveAutoCompactWindow(
+                  turnInput.runtimePolicy.cwd,
+                  turnInput.modelSelection,
+                  launchArgSettings,
+                ),
+              ],
+              { concurrency: "unbounded" },
+            );
           const closedExistingNativeThreadId = existing !== null ? existing.nativeThreadId : null;
           clearedNativeSessions.delete(nativeThreadId);
           if (existing !== null) {
@@ -13660,6 +13683,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             supportedDialogKinds: ["resume_return"],
             ...(appendSystemPromptFileText === undefined ? {} : { appendSystemPromptFileText }),
             ...(toolSearchOverride === undefined ? {} : { toolSearchOverride }),
+            resolvedAutoCompactWindow,
           });
           const resolvedTurnCwd = yield* fileSystem
             .realPath(turnInput.runtimePolicy.cwd ?? ".")
