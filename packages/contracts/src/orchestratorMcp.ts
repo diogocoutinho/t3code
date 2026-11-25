@@ -172,7 +172,10 @@ export const OrchestratorMcpDelegateTaskInput = Schema.Struct({
   task: OrchestratorMcpPrompt,
   // Some providers send the whole target object as JSON text.
   target: Schema.optional(
-    Schema.Union([OrchestratorMcpTarget, Schema.fromJsonString(OrchestratorMcpTarget)]),
+    Schema.Union([OrchestratorMcpTarget, Schema.fromJsonString(OrchestratorMcpTarget)]).annotate({
+      description:
+        "Without `model`, a Claude instance runs its delegated task model (Sonnet unless set to inherit); other providers inherit yours.",
+    }),
   ),
   title: Schema.optional(OrchestratorMcpTitle),
   role: Schema.optional(OrchestratorMcpTaskRole),

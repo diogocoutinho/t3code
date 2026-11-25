@@ -97,6 +97,7 @@ import {
   type AgentFeedbackMode,
   type ChatAttachment,
   PROVIDER_SEND_TURN_MAX_FILE_BYTES,
+  CLAUDE_DEFAULT_AUTO_COMPACT_WINDOW,
   ClaudeSettings,
   TrimmedNonEmptyString,
   defaultInstanceIdForDriver,
@@ -2385,6 +2386,7 @@ export function claudeQueryEnvironment(
   appThread: Pick<OrchestrationV2AppThread, "lineage">,
   subagentPromptCacheTtl: "5m" | "1h" | undefined,
   resume = false,
+  subagentModel: ClaudeSettings["subagentModel"] = "inherit",
 ): NodeJS.ProcessEnv {
   const promptCacheTtl =
     appThread.lineage.relationshipToParent === "subagent" &&
@@ -2393,11 +2395,19 @@ export function claudeQueryEnvironment(
       ? subagentPromptCacheTtl
       : undefined;
   const blockingMcpConnect = resume && environment.MCP_CONNECTION_NONBLOCKING === undefined;
-  if (promptCacheTtl === undefined && !blockingMcpConnect) {
+  // Without CLAUDE_CODE_SUBAGENT_MODEL_FORCE, a model the agent names for a subagent still wins.
+  const nativeSubagentModel =
+    subagentModel === "inherit" || environment.CLAUDE_CODE_SUBAGENT_MODEL !== undefined
+      ? undefined
+      : subagentModel;
+  if (promptCacheTtl === undefined && !blockingMcpConnect && nativeSubagentModel === undefined) {
     return environment;
   }
   return {
     ...environment,
+    ...(nativeSubagentModel === undefined
+      ? {}
+      : { CLAUDE_CODE_SUBAGENT_MODEL: nativeSubagentModel }),
     ...(promptCacheTtl === undefined ? {} : { CLAUDE_CODE_PROMPT_CACHE_TTL: promptCacheTtl }),
     ...(blockingMcpConnect ? { MCP_CONNECTION_NONBLOCKING: "0" } : {}),
   };
@@ -2458,6 +2468,29 @@ const subagentDeviceInstructions: HookCallback = () =>
     },
   });
 
+export interface ClaudeAiConnectorSettings {
+  readonly disableClaudeAiConnectors?: true;
+  readonly deniedMcpServers?: ReadonlyArray<{ readonly serverName: string }>;
+}
+
+/**
+ * Claude Code loads every claude.ai connector's instructions and tool names into context, so a
+ * project loads only the ones it allows. disableClaudeAiConnectors wins from any source, so a
+ * project that allows some denies the rest by name instead.
+ */
+export function claudeAiConnectorSettings(
+  allowed: ReadonlyArray<string> | "all",
+  known: ReadonlyArray<string>,
+): ClaudeAiConnectorSettings | undefined {
+  if (allowed === "all") return undefined;
+  if (allowed.length === 0) return { disableClaudeAiConnectors: true };
+  const allowedNames = new Set(allowed);
+  const denied = known.filter((name) => !allowedNames.has(name));
+  return denied.length === 0
+    ? undefined
+    : { deniedMcpServers: denied.map((serverName) => ({ serverName })) };
+}
+
 export function makeClaudeQueryOptions(input: {
   readonly modelSelection: ModelSelection;
   readonly modelCatalog?: ClaudeModelCatalog;
@@ -2490,6 +2523,9 @@ export function makeClaudeQueryOptions(input: {
   readonly appendSystemPromptFileText?: string;
   // Flag settings, because a user's settings.json env beats the process env in Claude Code.
   readonly toolSearchOverride?: "true";
+  /** The window resolveAutoCompactWindow picked when the T3 setting is empty. */
+  readonly resolvedAutoCompactWindow?: string;
+  readonly claudeAiConnectors?: ClaudeAiConnectorSettings;
 }): ClaudeAgentSdkQueryOptions {
   const compiledSelection = compileClaudeModelSelection(input.modelSelection, input.modelCatalog);
   const {
@@ -2542,12 +2578,18 @@ export function makeClaudeQueryOptions(input: {
     input.settings?.autoCompactWindow === undefined || input.settings.autoCompactWindow.length === 0
       ? undefined
       : input.settings.autoCompactWindow;
+  // Without the T3 setting, only the settings key: env and Claude's own settings still win there.
+  const settingsAutoCompactWindow =
+    autoCompactWindow ??
+    (input.resolvedAutoCompactWindow === undefined || input.resolvedAutoCompactWindow.length === 0
+      ? undefined
+      : input.resolvedAutoCompactWindow);
   const compactQuerySettings =
-    autoCompactWindow === undefined
+    settingsAutoCompactWindow === undefined
       ? querySettings
       : ({
           ...(typeof querySettings === "object" && querySettings !== null ? querySettings : {}),
-          autoCompactWindow: Number(autoCompactWindow),
+          autoCompactWindow: Number(settingsAutoCompactWindow),
         } as ClaudeSdkSettings);
   // Claude Code expands a bare alias to its own model, so a custom model with an alias's name
   // pins the alias to itself.
@@ -2558,17 +2600,34 @@ export function makeClaudeQueryOptions(input: {
           [`ANTHROPIC_DEFAULT_${compiledSelection.pinnedAlias.toUpperCase()}_MODEL`]:
             compiledSelection.pinnedAlias,
         };
+  const connectorQuerySettings =
+    input.claudeAiConnectors === undefined || typeof compactQuerySettings === "string"
+      ? compactQuerySettings
+      : ({
+          ...compactQuerySettings,
+          ...(input.claudeAiConnectors.disableClaudeAiConnectors === true
+            ? { disableClaudeAiConnectors: true }
+            : {}),
+          ...(input.claudeAiConnectors.deniedMcpServers === undefined
+            ? {}
+            : {
+                deniedMcpServers: [
+                  ...(compactQuerySettings?.deniedMcpServers ?? []),
+                  ...input.claudeAiConnectors.deniedMcpServers,
+                ],
+              }),
+        } as ClaudeSdkSettings);
   // A settings file path cannot take extra keys, so it goes through unchanged.
   const effectiveQuerySettings =
     (input.toolSearchOverride === undefined &&
       aliasOverrideEnv === undefined &&
       autoCompactWindow === undefined) ||
-    typeof compactQuerySettings === "string"
-      ? compactQuerySettings
+    typeof connectorQuerySettings === "string"
+      ? connectorQuerySettings
       : ({
-          ...compactQuerySettings,
+          ...connectorQuerySettings,
           env: {
-            ...compactQuerySettings?.env,
+            ...connectorQuerySettings?.env,
             ...aliasOverrideEnv,
             // Claude Code ranks this env var above the autoCompactWindow setting.
             ...(autoCompactWindow === undefined
@@ -5937,6 +5996,8 @@ export interface ClaudeAdapterV2Options {
    * SessionStart hooks have run, so cwd-keyed workspace scans can be refreshed.
    */
   readonly onSessionInit?: (cwd: string) => Effect.Effect<void>;
+  /** The account's claude.ai connector names, used to deny the ones a project leaves out. */
+  readonly knownClaudeAiConnectors?: Effect.Effect<ReadonlyArray<string>>;
   /**
    * Applies Claude Code's reported model ids for a turn's cwd, so turns send ids its backend
    * accepts. Defaults to the catalog unchanged.
@@ -6172,7 +6233,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
       const value = windowFrom(settings);
       if (value !== undefined) return value;
     }
-    return "";
+    return CLAUDE_DEFAULT_AUTO_COMPACT_WINDOW;
   });
 
   const userInvocableSkills = (cwd: string | null) =>
@@ -6205,6 +6266,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
     openSession: Effect.fn("ClaudeAdapterV2.openSession")(
       function* (input: ProviderAdapter.ProviderAdapterV2OpenSessionInput) {
         const promptSuggestionsEnabled = input.promptSuggestions ?? Effect.succeed(false);
+        const projectClaudeAiConnectors = input.claudeAiConnectorAllowlist ?? Effect.succeed(null);
         const sessionScope = yield* Effect.scope;
         const now = yield* DateTime.now;
         const session = providerSession({
@@ -13580,17 +13642,32 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
           }
 
           // Read before closing the live process so a bad path leaves it running.
-          const [appendSystemPromptFileText, toolSearchOverride] = yield* Effect.all(
-            [
-              readClaudeAppendSystemPromptFile({
-                settings: adapterOptions.settings,
-                cwd: turnInput.runtimePolicy.cwd,
-                fileSystem,
-                path,
-              }),
-              resolveToolSearchOverride(turnInput.runtimePolicy.cwd, launchArgSettings),
-            ],
-            { concurrency: "unbounded" },
+          const [appendSystemPromptFileText, toolSearchOverride, resolvedAutoCompactWindow] =
+            yield* Effect.all(
+              [
+                readClaudeAppendSystemPromptFile({
+                  settings: adapterOptions.settings,
+                  cwd: turnInput.runtimePolicy.cwd,
+                  fileSystem,
+                  path,
+                }),
+                resolveToolSearchOverride(turnInput.runtimePolicy.cwd, launchArgSettings),
+                resolveAutoCompactWindow(
+                  turnInput.runtimePolicy.cwd,
+                  turnInput.modelSelection,
+                  launchArgSettings,
+                ),
+              ],
+              { concurrency: "unbounded" },
+            );
+          const allowedClaudeAiConnectors =
+            (yield* projectClaudeAiConnectors) ??
+            (adapterOptions.settings.claudeAiConnectors === "all" ? "all" : []);
+          const claudeAiConnectors = claudeAiConnectorSettings(
+            allowedClaudeAiConnectors,
+            allowedClaudeAiConnectors === "all" || allowedClaudeAiConnectors.length === 0
+              ? []
+              : yield* adapterOptions.knownClaudeAiConnectors ?? Effect.succeed([]),
           );
           const closedExistingNativeThreadId = existing !== null ? existing.nativeThreadId : null;
           clearedNativeSessions.delete(nativeThreadId);
@@ -13638,6 +13715,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
                 ? yield* resolveSubagentPromptCacheTtl(turnInput.runtimePolicy.cwd)
                 : undefined,
               shouldResume,
+              adapterOptions.settings.subagentModel,
             ),
             tools: queryPolicy.tools ?? CLAUDE_CODE_PRESET_TOOLS,
             ...(mcpOverrides.allowedTools === undefined
@@ -13660,6 +13738,8 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             supportedDialogKinds: ["resume_return"],
             ...(appendSystemPromptFileText === undefined ? {} : { appendSystemPromptFileText }),
             ...(toolSearchOverride === undefined ? {} : { toolSearchOverride }),
+            resolvedAutoCompactWindow,
+            ...(claudeAiConnectors === undefined ? {} : { claudeAiConnectors }),
           });
           const resolvedTurnCwd = yield* fileSystem
             .realPath(turnInput.runtimePolicy.cwd ?? ".")
@@ -15474,7 +15554,12 @@ export const createClaudeAdapterV2 = Effect.fn("ClaudeAdapterV2Driver.create")(
     input: ProviderAdapterDriverCreateInput<ClaudeSettings>,
     hooks: Pick<
       ClaudeAdapterV2Options,
-      "scopedLimitNames" | "onUsageLimits" | "onSessionInit" | "modelCatalog" | "routeModelCatalog"
+      | "scopedLimitNames"
+      | "onUsageLimits"
+      | "onSessionInit"
+      | "modelCatalog"
+      | "routeModelCatalog"
+      | "knownClaudeAiConnectors"
     > = {},
   ) {
     const { instanceId, environment, enabled, config } = input;

@@ -191,6 +191,10 @@
       "types": "./src/platform/index.ts",
       "default": "./src/platform/index.ts"
     },
+    "./claudeAiConnectors": {
+      "types": "./src/claudeAiConnectors.ts",
+      "default": "./src/claudeAiConnectors.ts"
+    },
     "./providerSkills": {
       "types": "./src/providerSkills.ts",
       "default": "./src/providerSkills.ts"

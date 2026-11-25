@@ -110,6 +110,9 @@ const PACKAGE_FIELD_TEXT: ReadonlyMap<string, string> = new Map([
   ["CLAUDE_CONFIG_DIR path", msg("CLAUDE_CONFIG_DIR path")],
   ["Auto-compact after", msg("Auto-compact after")],
   ["Compact idle threads", msg("Compact idle threads")],
+  ["Subagent model", msg("Subagent model")],
+  ["Delegated task model", msg("Delegated task model")],
+  ["claude.ai connectors", msg("claude.ai connectors")],
   ["Sign-in method", msg("Sign-in method")],
   ["API key", msg("API key")],
   ["GCP project", msg("GCP project")],
@@ -152,8 +155,28 @@ const PACKAGE_FIELD_TEXT: ReadonlyMap<string, string> = new Map([
     msg("Additional CLI arguments passed on session start."),
   ],
   [
-    "Compact after 100,000 to 1,000,000 tokens. Leave empty to use Claude's default.",
-    msg("Compact after 100,000 to 1,000,000 tokens. Leave empty to use Claude's default."),
+    "Compact after 100,000 to 1,000,000 tokens. Empty uses 200,000 unless Claude's own settings set a window.",
+    msg(
+      "Compact after 100,000 to 1,000,000 tokens. Empty uses 200,000 unless Claude's own settings set a window.",
+    ),
+  ],
+  [
+    "Model for Claude's built-in subagents. A model the agent names for a subagent still wins.",
+    msg(
+      "Model for Claude's built-in subagents. A model the agent names for a subagent still wins.",
+    ),
+  ],
+  [
+    "Model for tasks delegated to this instance when the agent names none. Falls back to the parent's model when this instance has no Sonnet.",
+    msg(
+      "Model for tasks delegated to this instance when the agent names none. Falls back to the parent's model when this instance has no Sonnet.",
+    ),
+  ],
+  [
+    "Connectors loaded in projects that have not picked their own. Each loaded connector adds context to every message.",
+    msg(
+      "Connectors loaded in projects that have not picked their own. Each loaded connector adds context to every message.",
+    ),
   ],
   [
     "When to compact an idle thread over 200,000 tokens: after you return, just before its prompt cache expires, or never. Overrides the default in Providers > Advanced.",
@@ -248,7 +271,6 @@ const PACKAGE_FIELD_TEXT: ReadonlyMap<string, string> = new Map([
     ),
   ],
   ["e.g. --chrome", msg("e.g. --chrome")],
-  ["e.g. 300000", msg("e.g. 300000")],
   ["Optional", msg("Optional", { $context: "placeholder of an optional settings field" })],
   ["Automatic", msg("Automatic", { $context: "placeholder, chosen automatically when empty" })],
   ["Registry default", msg("Registry default")],
@@ -256,6 +278,12 @@ const PACKAGE_FIELD_TEXT: ReadonlyMap<string, string> = new Map([
   ["Before the cache expires (beta)", msg("Before the cache expires (beta)")],
   ["Never", msg("Never", { $context: "option, never compact idle threads" })],
   ["Use default", msg("Use default")],
+  [
+    "Same as parent",
+    msg("Same as parent", { $context: "option, a child agent uses its parent's model" }),
+  ],
+  ["None", msg("None", { $context: "option, load no claude.ai connectors" })],
+  ["All", msg("All", { $context: "option, load every claude.ai connector" })],
   ["Google account", msg("Google account")],
   ["Gemini API key", msg("Gemini API key")],
   ["Local command", msg("Local command")],

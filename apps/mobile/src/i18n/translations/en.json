@@ -3755,6 +3755,8 @@
   "006f2c2416a56768": "Preview browser",
   "19e1f74805f4a1fb": "Agent browser access",
   "74d09db9719594eb": "Allow agents to use the in-app preview browser.",
+  "96bc31f17706e58e": "claude.ai connectors",
+  "55686c1600ed103b": "Each enabled connector adds its instructions and tool names to every message. Changes apply when a thread's Claude session next starts.",
   "13087312bc6a0b45": "Pull requests",
   "efb65f53a2382026": "Remove agent credits when merging",
   "88631d9ea293eccd": "Remove recognized agent credits from merge and squash messages on hosts that support it, keeping human co-authors. Includes auto-merge. Excludes merge queues, stack merges, and existing commits.",

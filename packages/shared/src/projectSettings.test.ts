@@ -322,6 +322,16 @@ describe("projectSettingsOverrides patches", () => {
       [otherProjectId]: { defaultAutoPull: false },
     });
     expect(hasProjectSettingsOverrides(DEFAULT_SERVER_SETTINGS)).toBe(false);
+
+    const connectors = applyServerSettingsPatch(DEFAULT_SERVER_SETTINGS, {
+      projectSettingsOverrides: { [projectId]: { claudeAiConnectorAllowlist: [] } },
+    });
+    expect(
+      resolveProjectSettings(connectors, projectId).settings.claudeAiConnectorAllowlist,
+    ).toEqual([]);
+    expect(
+      resolveProjectSettings(connectors, otherProjectId).settings.claudeAiConnectorAllowlist,
+    ).toBeNull();
   });
 
   it("derives the legacy per-key maps from the generic record", () => {

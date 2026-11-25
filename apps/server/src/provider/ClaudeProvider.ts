@@ -12,6 +12,7 @@ import {
 } from "@t3tools/contracts";
 import * as Cause from "effect/Cause";
 import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -478,7 +479,10 @@ function claudeGatewayDiscoveryGraceMs(environment: Readonly<Record<string, unkn
 
 class ClaudeCapabilitiesProbeSdkError extends Schema.TaggedError<ClaudeCapabilitiesProbeSdkError>()(
   "ClaudeCapabilitiesProbeSdkError",
-  { operation: Schema.Literals(["initialize", "usage", "settings"]), cause: Schema.Defect() },
+  {
+    operation: Schema.Literals(["initialize", "usage", "settings", "connectors"]),
+    cause: Schema.Defect(),
+  },
 ) {
   override get message(): string {
     return `Claude capability probe ${this.operation} failed.`;
@@ -618,6 +622,105 @@ const probeClaudeCapabilities = (
 };
 
 type ClaudeCapabilitiesProbeError = Effect.Error<ReturnType<typeof probeClaudeCapabilities>>;
+
+const CLAUDE_AI_CONNECTOR_PREFIX = "claude.ai ";
+const CLAUDE_AI_CONNECTOR_DISCOVERY_MS = 10_000;
+const CLAUDE_AI_CONNECTOR_POLL_MS = 500;
+
+/** Display names of a status list's claude.ai connectors, sorted and without duplicates. */
+function claudeAiConnectorNames(
+  statuses: ReadonlyArray<{ readonly name: string }>,
+): ReadonlyArray<string> {
+  return [
+    ...new Set(
+      statuses
+        .map((status) => status.name)
+        .filter((name) => name.startsWith(CLAUDE_AI_CONNECTOR_PREFIX)),
+    ),
+  ].toSorted();
+}
+
+/**
+ * Lists the account's claude.ai connectors. They are fetched after init and never appear while
+ * any settings source disables them, so this opens a promptless query with them on and polls.
+ */
+export const discoverClaudeAiConnectors = (
+  claudeSettings: ClaudeSettings,
+  environment?: NodeJS.ProcessEnv,
+  cwd?: string,
+) => {
+  const abort = new AbortController();
+  const abortProbe = Effect.sync(() => {
+    if (!abort.signal.aborted) abort.abort();
+  });
+  return Effect.gen(function* () {
+    const claudeEnvironment = yield* makeClaudeEnvironment(claudeSettings, environment);
+    const executablePath = yield* resolveClaudeSdkExecutablePath(
+      claudeSettings.binaryPath,
+      claudeEnvironment,
+    );
+    const platform = yield* HostProcess.Platform;
+    const spawnVia =
+      platform === "win32"
+        ? "launcher-thread"
+        : platform === "linux" && (yield* Effect.promise(supportsEnvChdir))
+          ? "env"
+          : undefined;
+    const probeOptions = buildClaudeCapabilitiesProbeQueryOptions({
+      executablePath,
+      abortController: abort,
+      environment: claudeEnvironment,
+      cwd,
+      // strictMcpConfig also turns the connectors off.
+      managedMcpConfig: true,
+      spawnVia,
+    });
+    const q = yield* Effect.tryPromise({
+      try: async () => {
+        const q = claudeQuery({
+          // oxlint-disable-next-line require-yield -- never yields, so no prompt reaches the API
+          prompt: (async function* (): AsyncGenerator<SDKUserMessage> {
+            await waitForAbortSignal(abort.signal);
+          })(),
+          options: {
+            ...probeOptions,
+            env: {
+              ...probeOptions.env,
+              ENABLE_CLAUDEAI_MCP_SERVERS: claudeEnvironment.ENABLE_CLAUDEAI_MCP_SERVERS,
+            },
+          },
+        });
+        await q.initializationResult();
+        return q;
+      },
+      catch: (cause) => new ClaudeCapabilitiesProbeSdkError({ operation: "connectors", cause }),
+    });
+    for (let waited = 0; waited < CLAUDE_AI_CONNECTOR_DISCOVERY_MS;) {
+      const names = claudeAiConnectorNames(
+        yield* Effect.tryPromise({
+          try: () => q.mcpServerStatus(),
+          catch: (cause) => new ClaudeCapabilitiesProbeSdkError({ operation: "connectors", cause }),
+        }),
+      );
+      if (names.length > 0) return names;
+      yield* Effect.sleep(Duration.millis(CLAUDE_AI_CONNECTOR_POLL_MS));
+      waited += CLAUDE_AI_CONNECTOR_POLL_MS;
+    }
+    return [] as ReadonlyArray<string>;
+  }).pipe(
+    Effect.timeout(
+      resolveProviderProbeTimeoutMs(
+        "claude",
+        CAPABILITIES_PROBE_TIMEOUT_MS + CLAUDE_AI_CONNECTOR_DISCOVERY_MS,
+        environment,
+      ),
+    ),
+    Effect.ensuring(abortProbe),
+    Effect.tapError((error) =>
+      Effect.logWarning("Claude connector discovery failed.", { errorTag: error._tag }),
+    ),
+  );
+};
 
 const runClaudeCommand = Effect.fn("runClaudeCommand")(function* (
   claudeSettings: ClaudeSettings,

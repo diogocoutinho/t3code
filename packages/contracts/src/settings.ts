@@ -773,6 +773,8 @@ export const CodexSettings = makeProviderSettingsSchema(
 export type CodexSettings = typeof CodexSettings.Type;
 
 const CLAUDE_AUTO_COMPACT_WINDOW_PATTERN = /^(?:|[1-9]\d{5}|1000000)$/;
+/** Used when neither this setting nor Claude's own settings or env pick a window. */
+export const CLAUDE_DEFAULT_AUTO_COMPACT_WINDOW = "200000";
 
 export const IDLE_COMPACTION_MODES = [
   { value: "onReturn", label: "When you return" },
@@ -793,6 +795,24 @@ const INSTANCE_IDLE_COMPACTION_MODES = [
 const InstanceIdleCompaction = Schema.Literals(
   INSTANCE_IDLE_COMPACTION_MODES.map((mode) => mode.value),
 );
+
+const CLAUDE_CHILD_MODEL_CHOICES = [
+  { value: "sonnet", label: "Sonnet" },
+  { value: "inherit", label: "Same as parent" },
+] as const;
+const ClaudeChildModelChoice = Schema.Literals(
+  CLAUDE_CHILD_MODEL_CHOICES.map((choice) => choice.value),
+);
+
+const CLAUDE_AI_CONNECTOR_DEFAULTS = [
+  { value: "none", label: "None" },
+  { value: "all", label: "All" },
+] as const;
+export const ClaudeAiConnectorDefault = Schema.Literals(
+  CLAUDE_AI_CONNECTOR_DEFAULTS.map((choice) => choice.value),
+);
+export type ClaudeAiConnectorDefault = typeof ClaudeAiConnectorDefault.Type;
+export const ClaudeAiConnectorAllowlist = Schema.Array(TrimmedNonEmptyString);
 
 export const ClaudeSettings = makeProviderSettingsSchema(
   {
@@ -838,9 +858,9 @@ export const ClaudeSettings = makeProviderSettingsSchema(
       Schema.annotateKey({
         title: "Auto-compact after",
         description:
-          "Compact after 100,000 to 1,000,000 tokens. Leave empty to use Claude's default.",
+          "Compact after 100,000 to 1,000,000 tokens. Empty uses 200,000 unless Claude's own settings set a window.",
         providerSettingsForm: {
-          placeholder: "e.g. 300000",
+          placeholder: "200000",
           clearWhenEmpty: "omit",
         },
       }),
@@ -858,9 +878,57 @@ export const ClaudeSettings = makeProviderSettingsSchema(
         },
       }),
     ),
+    subagentModel: ClaudeChildModelChoice.pipe(
+      Schema.withDecodingDefault(Effect.succeed("sonnet" as const)),
+      Schema.annotateKey({
+        title: "Subagent model",
+        description:
+          "Model for Claude's built-in subagents. A model the agent names for a subagent still wins.",
+        providerSettingsForm: {
+          control: "select",
+          options: CLAUDE_CHILD_MODEL_CHOICES,
+          clearWhenEmpty: "omit",
+        },
+      }),
+    ),
+    delegatedTaskModel: ClaudeChildModelChoice.pipe(
+      Schema.withDecodingDefault(Effect.succeed("sonnet" as const)),
+      Schema.annotateKey({
+        title: "Delegated task model",
+        description:
+          "Model for tasks delegated to this instance when the agent names none. Falls back to the parent's model when this instance has no Sonnet.",
+        providerSettingsForm: {
+          control: "select",
+          options: CLAUDE_CHILD_MODEL_CHOICES,
+          clearWhenEmpty: "omit",
+        },
+      }),
+    ),
+    claudeAiConnectors: ClaudeAiConnectorDefault.pipe(
+      Schema.withDecodingDefault(Effect.succeed("none" as const)),
+      Schema.annotateKey({
+        title: "claude.ai connectors",
+        description:
+          "Connectors loaded in projects that have not picked their own. Each loaded connector adds context to every message.",
+        providerSettingsForm: {
+          control: "select",
+          options: CLAUDE_AI_CONNECTOR_DEFAULTS,
+          clearWhenEmpty: "omit",
+        },
+      }),
+    ),
   },
   {
-    order: ["binaryPath", "homePath", "autoCompactWindow", "idleCompaction", "launchArgs"],
+    order: [
+      "binaryPath",
+      "homePath",
+      "autoCompactWindow",
+      "idleCompaction",
+      "subagentModel",
+      "delegatedTaskModel",
+      "claudeAiConnectors",
+      "launchArgs",
+    ],
   },
 );
 export type ClaudeSettings = typeof ClaudeSettings.Type;
@@ -1196,6 +1264,7 @@ export const PROJECT_SCOPED_SERVER_SETTING_KEYS = [
   "defaultProjectScripts",
   "enableAgentBrowserAccess",
   "enableAgentDeviceAccess",
+  "claudeAiConnectorAllowlist",
   "textGenerationModelSelection",
   "threadTitleInstructions",
   "sourceControlWriterModelSelection",
@@ -1234,6 +1303,7 @@ export const ProjectSettingsOverrides = Schema.Struct({
   defaultProjectScripts: Schema.optionalKey(Schema.Array(ProjectScript)),
   enableAgentBrowserAccess: Schema.optionalKey(Schema.Boolean),
   enableAgentDeviceAccess: Schema.optionalKey(Schema.Boolean),
+  claudeAiConnectorAllowlist: Schema.optionalKey(ClaudeAiConnectorAllowlist),
   textGenerationModelSelection: Schema.optionalKey(ModelSelection),
   threadTitleInstructions: Schema.optionalKey(TrimmedString),
   sourceControlWriterModelSelection: Schema.optionalKey(Schema.NullOr(ModelSelection)),
@@ -1463,6 +1533,10 @@ export const ServerSettings = Schema.Struct({
   projectSettingsFolded: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
 
   enableAgentDeviceAccess: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
+  /** A project's claude.ai connectors by display name. Null follows the Claude instance default. */
+  claudeAiConnectorAllowlist: Schema.NullOr(ClaudeAiConnectorAllowlist).pipe(
+    Schema.withDecodingDefault(Effect.succeed(null)),
+  ),
   /** Enabling the Device panel must not grant providers device control. */
   enableDeviceSupport: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   deviceOnboardingCompleted: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
@@ -1923,6 +1997,7 @@ export const ServerSettingsPatch = Schema.Struct({
     ),
   ),
   enableAgentDeviceAccess: Schema.optionalKey(Schema.Boolean),
+  claudeAiConnectorAllowlist: Schema.optionalKey(Schema.NullOr(ClaudeAiConnectorAllowlist)),
   enableDeviceSupport: Schema.optionalKey(Schema.Boolean),
   deviceOnboardingCompleted: Schema.optionalKey(Schema.Boolean),
   deviceHosts: Schema.optionalKey(SshDeviceHostConfigs),

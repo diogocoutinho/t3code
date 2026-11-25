@@ -544,6 +544,16 @@ export const layerWithOptions = (
           );
         },
       );
+      // Unreadable settings fall back to the Claude instance's default.
+      const claudeAiConnectorAllowlist = (threadId: ThreadId) =>
+        Option.isNone(serverSettings)
+          ? Effect.succeed(null)
+          : Effect.gen(function* () {
+              const settings = yield* serverSettings.value.getSettings;
+              const thread = yield* projectionStore.getThread(threadId);
+              return resolveProjectSettings(settings, thread.projectId).settings
+                .claudeAiConnectorAllowlist;
+            }).pipe(Effect.orElseSucceed(() => null));
       const readLinkedEnvironments = Effect.gen(function* () {
         if (options.configureMcp === false || Option.isNone(serverSettings)) return undefined;
         return yield* serverSettings.value.getSettings.pipe(
@@ -3314,6 +3324,7 @@ export const layerWithOptions = (
                     modelSelection: input.modelSelection,
                     runtimePolicy: input.runtimePolicy,
                     promptSuggestions: promptSuggestionsEnabled,
+                    claudeAiConnectorAllowlist: claudeAiConnectorAllowlist(input.threadId),
                     ...(input.resumeFromSession === undefined
                       ? {}
                       : { resumeFromSession: input.resumeFromSession }),

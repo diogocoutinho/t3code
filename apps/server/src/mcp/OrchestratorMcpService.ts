@@ -1,4 +1,5 @@
 import {
+  ClaudeSettings,
   CommandId,
   type RunId,
   idleCompactionOf,
@@ -122,6 +123,7 @@ import * as ProjectService from "../project/ProjectService.ts";
 import * as ProviderRegistry from "../provider/ProviderRegistry.ts";
 import * as ScheduledTaskService from "../scheduledTasks/ScheduledTaskService.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import { deriveProviderInstanceConfigMap } from "../provider/ProviderInstanceRegistryHydration.ts";
 import {
   clientModeCeiling,
   type McpInvocationScope,
@@ -314,6 +316,23 @@ function scheduledTaskSummary(task: ScheduledTask, mayRun: boolean): Orchestrato
  * get a short list by default and search for the rest. These providers have
  * small official catalogs, so all their current models are listed.
  */
+const CLAUDE_DRIVER = "claudeAgent";
+const decodeClaudeSettings = Schema.decodeUnknownOption(ClaudeSettings);
+
+/** The model delegate_task picks on a Claude instance when the agent names none. */
+export function claudeDelegatedTaskModel(
+  provider: Pick<ServerProvider, "models">,
+  choice: ClaudeSettings["delegatedTaskModel"],
+): string | undefined {
+  if (choice === "inherit") return undefined;
+  return provider.models.find(
+    (model) =>
+      !model.isCustom &&
+      model.isLegacy !== true &&
+      model.aliases?.some((alias) => alias.toLowerCase() === choice) === true,
+  )?.slug;
+}
+
 const FULL_CATALOG_DRIVERS: ReadonlySet<string> = new Set(["codex", "claudeAgent", "muse", "grok"]);
 const LISTED_MODEL_LIMIT = 8;
 
@@ -1665,10 +1684,25 @@ const make = Effect.gen(function* () {
     );
   };
 
+  const delegatedTaskDefaultModel = Effect.fn("OrchestratorMcpService.delegatedTaskDefaultModel")(
+    function* (provider: ServerProvider) {
+      if (provider.driver !== CLAUDE_DRIVER) return undefined;
+      const settings = yield* serverSettings.getSettings.pipe(Effect.option);
+      if (Option.isNone(settings)) return undefined;
+      const config = deriveProviderInstanceConfigMap(settings.value)[provider.instanceId]?.config;
+      const claudeSettings = decodeClaudeSettings(config ?? {});
+      return Option.isNone(claudeSettings)
+        ? undefined
+        : claudeDelegatedTaskModel(provider, claudeSettings.value.delegatedTaskModel);
+    },
+  );
+
   const resolveTarget = Effect.fn("OrchestratorMcpService.resolveTarget")(function* (input: {
     readonly parent: Pick<OrchestrationV2ThreadProjection, "thread">;
     readonly target: OrchestratorMcpTarget | undefined;
     readonly providers: ReadonlyArray<ServerProvider>;
+    /** delegate_task falls back to the instance's delegated task model before inheriting. */
+    readonly useDelegatedTaskModel?: boolean;
     /** Receipt replays bypass current settings because they start no work. Dispatch must reuse the checked command ID. */
     readonly skipProjectEnablementFilter?: boolean;
   }): Effect.fn.Return<ResolvedTarget, OrchestratorMcpFailure> {
@@ -1750,9 +1784,14 @@ const make = Effect.gen(function* () {
     const requestedModel = input.target?.model;
     const antigravityTarget =
       requestedModel === undefined ? undefined : antigravitySuffixedModel(provider, requestedModel);
+    const delegatedDefault =
+      requestedModel === undefined && input.useDelegatedTaskModel === true
+        ? yield* delegatedTaskDefaultModel(provider)
+        : undefined;
     const model =
       antigravityTarget?.model ??
       requestedModel ??
+      delegatedDefault ??
       (instanceId === inheritedSelection.instanceId
         ? inheritedSelection.model
         : provider.models[0]?.slug);
@@ -2906,6 +2945,7 @@ const make = Effect.gen(function* () {
         providers,
         cwd: yield* parentWorkspaceCwd(parent),
         skipProjectEnablementFilter: isRetryOfAcceptedDelegation,
+        useDelegatedTaskModel: true,
       });
       const runtimeMode = yield* resolveRuntimeMode(
         parent.thread.runtimeMode,

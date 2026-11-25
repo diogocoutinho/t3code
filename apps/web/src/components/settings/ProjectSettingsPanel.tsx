@@ -53,6 +53,7 @@ import {
   ProjectFaviconPickerDialog,
 } from "./ProjectFaviconPickerDialog";
 import { ProjectActionsSettings } from "./ProjectActionsSettings";
+import { ProjectClaudeConnectorsSettings } from "./ProjectClaudeConnectorsSettings";
 import { ProjectDefaultsSettings } from "./ProjectDefaultsSettings";
 import { ProjectRepositoriesSettings } from "./ProjectRepositoriesSettings";
 import {
@@ -692,6 +693,7 @@ function ProjectDetail({
           ) : null}
         </SettingsSection>
         <ProjectDefaultsSettings category="project" />
+        <ProjectClaudeConnectorsSettings />
         <ProjectActionsSettings />
         <ProjectRepositoriesSettings members={group.memberProjects} />
         {checkoutChoices}

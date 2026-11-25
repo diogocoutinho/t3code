@@ -496,6 +496,29 @@ describe("ClaudeAdapterV2 runtime query policy", () => {
     assert.equal(nonblocking({ MCP_CONNECTION_NONBLOCKING: "1" }, true), "1");
   });
 
+  it("runs native subagents on the instance's subagent model unless the env picks one", () => {
+    const appThread = {
+      lineage: {
+        parentThreadId: null,
+        relationshipToParent: null,
+        rootThreadId: ThreadId.make("t"),
+      },
+    };
+    const subagentModel = (
+      environment: NodeJS.ProcessEnv,
+      setting: Parameters<typeof ClaudeAdapterV2.claudeQueryEnvironment>[4],
+    ) =>
+      ClaudeAdapterV2.claudeQueryEnvironment(environment, appThread, undefined, false, setting)
+        .CLAUDE_CODE_SUBAGENT_MODEL;
+    assert.equal(subagentModel({}, "sonnet"), "sonnet");
+    assert.isUndefined(subagentModel({}, "inherit"));
+    assert.equal(subagentModel({ CLAUDE_CODE_SUBAGENT_MODEL: "haiku" }, "sonnet"), "haiku");
+    assert.isUndefined(
+      ClaudeAdapterV2.claudeQueryEnvironment({}, appThread, undefined, false, "sonnet")
+        .CLAUDE_CODE_SUBAGENT_MODEL_FORCE,
+    );
+  });
+
   it("pins Claude's auto tool search on through flag settings", () => {
     const override = ClaudeAdapterV2.claudeToolSearchOverride;
     for (const value of ["auto", "auto:10", "auto:99.5", "auto:x", "auto:Infinity"]) {
@@ -542,6 +565,56 @@ describe("ClaudeAdapterV2 runtime query policy", () => {
       (options.settings as { env?: Record<string, string> }).env?.CLAUDE_CODE_AUTO_COMPACT_WINDOW,
       "400000",
     );
+  });
+
+  it("loads only the claude.ai connectors a project allows", () => {
+    const known = ["claude.ai Gmail", "claude.ai EasyDev HUB", "claude.ai Notion"];
+    assert.isUndefined(ClaudeAdapterV2.claudeAiConnectorSettings("all", known));
+    assert.deepEqual(ClaudeAdapterV2.claudeAiConnectorSettings([], known), {
+      disableClaudeAiConnectors: true,
+    });
+    assert.deepEqual(ClaudeAdapterV2.claudeAiConnectorSettings(["claude.ai EasyDev HUB"], known), {
+      deniedMcpServers: [{ serverName: "claude.ai Gmail" }, { serverName: "claude.ai Notion" }],
+    });
+    assert.isUndefined(ClaudeAdapterV2.claudeAiConnectorSettings(known, known));
+    // Without discovered names nothing can be denied by name.
+    assert.isUndefined(ClaudeAdapterV2.claudeAiConnectorSettings(["claude.ai Gmail"], []));
+
+    const options = ClaudeAdapterV2.makeClaudeQueryOptions({
+      modelSelection: CLAUDE_TEST_MODEL_SELECTION,
+      nativeThreadId: "native-connectors",
+      resume: false,
+      cwd: "/workspace",
+      settings: DEFAULT_CLAUDE_SETTINGS,
+      sdkSettings: { deniedMcpServers: [{ serverName: "local" }] },
+      claudeAiConnectors: { deniedMcpServers: [{ serverName: "claude.ai Gmail" }] },
+    });
+    const settings = options.settings as {
+      deniedMcpServers?: ReadonlyArray<{ serverName: string }>;
+      disableClaudeAiConnectors?: boolean;
+    };
+    assert.deepEqual(settings.deniedMcpServers, [
+      { serverName: "local" },
+      { serverName: "claude.ai Gmail" },
+    ]);
+    assert.isUndefined(settings.disableClaudeAiConnectors);
+  });
+
+  it("sends a resolved auto-compact window only as a settings key", () => {
+    const options = ClaudeAdapterV2.makeClaudeQueryOptions({
+      modelSelection: CLAUDE_TEST_MODEL_SELECTION,
+      nativeThreadId: "native-auto-compact-default",
+      resume: false,
+      cwd: "/workspace",
+      settings: { ...DEFAULT_CLAUDE_SETTINGS, autoCompactWindow: "" },
+      resolvedAutoCompactWindow: "200000",
+    });
+    const settings = options.settings as {
+      autoCompactWindow?: number;
+      env?: Record<string, string>;
+    };
+    assert.equal(settings.autoCompactWindow, 200_000);
+    assert.equal(settings.env?.CLAUDE_CODE_AUTO_COMPACT_WINDOW, undefined);
   });
 
   it("sends a custom model named like a Claude Code alias to the API unchanged", () => {
@@ -11045,6 +11118,7 @@ describe("ClaudeAdapterV2 background wake turns", () => {
 
   it.effect.each([
     { autoCompactWindow: "", model: "claude-sonnet-4-6", threshold: undefined },
+    { autoCompactWindow: "", model: "claude-opus-5-5", threshold: 167_000 },
     { autoCompactWindow: "150000", model: "claude-sonnet-4-6", threshold: 117_000 },
     { autoCompactWindow: "200000", model: "claude-sonnet-4-6", threshold: undefined },
     { autoCompactWindow: "650000", model: "claude-sonnet-4-6", threshold: undefined },
@@ -11093,19 +11167,19 @@ describe("ClaudeAdapterV2 background wake turns", () => {
       autoCompactWindow: "",
       model: "claude-opus-5-5",
       userSettings: '{"autoCompactWindow":"invalid"}',
-      threshold: undefined,
+      threshold: 167_000,
     },
     {
       autoCompactWindow: "",
       model: "claude-opus-5-5",
       userSettings: '{"autoCompactWindow":500000,}',
-      threshold: undefined,
+      threshold: 167_000,
     },
     {
       autoCompactWindow: "",
       model: "claude-opus-5-5",
       userSettings: '{/* invalid */ "autoCompactWindow":500000}',
-      threshold: undefined,
+      threshold: 167_000,
     },
     {
       autoCompactWindow: "",
@@ -12891,7 +12965,11 @@ describe("ClaudeAdapterV2 background wake turns", () => {
                 tools: { type: "preset", preset: "claude_code" },
                 permissionMode: "bypassPermissions",
                 allowDangerouslySkipPermissions: true,
-                settings: { showThinkingSummaries: true },
+                settings: {
+                  showThinkingSummaries: true,
+                  disableClaudeAiConnectors: true,
+                  autoCompactWindow: 200_000,
+                },
                 sessionId: WAKE_NATIVE_SESSION,
               },
             },
