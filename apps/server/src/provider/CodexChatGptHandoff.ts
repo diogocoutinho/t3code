@@ -6,7 +6,7 @@ import * as Stream from "effect/Stream";
 import { FetchHttpClient } from "effect/http";
 import * as ServerSecretStore from "../auth/ServerSecretStore.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
-import { makeCodexChatGptAuth } from "./CodexChatGptAuth.ts";
+import { makeChatGptPlanAuth } from "./ChatGptPlanAuth.ts";
 
 export function subscribeChatGptHandoff(
   input: ChatGptHandoffInput,
@@ -38,7 +38,7 @@ export function subscribeChatGptHandoff(
           return Effect.die("Handoff uses the destination environment identity.");
         }),
       });
-      const auth = yield* makeCodexChatGptAuth({
+      const auth = yield* makeChatGptPlanAuth({
         ...endpoints,
         instanceId: input.instanceId,
         reconnectProfile: input.profile,

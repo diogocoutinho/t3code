@@ -115,6 +115,7 @@ export const CustomModelSetting = Schema.Union([Schema.String, CustomModelEntry]
 export type CustomModelSetting = typeof CustomModelSetting.Type;
 
 const CODEX_DRIVER_KIND = ProviderDriverKind.make("codex");
+const CHATGPT_DRIVER_KIND = ProviderDriverKind.make("chatgpt");
 const CLAUDE_DRIVER_KIND = ProviderDriverKind.make("claudeAgent");
 const CURSOR_DRIVER_KIND = ProviderDriverKind.make("cursor");
 const GROK_DRIVER_KIND = ProviderDriverKind.make("grok");
@@ -143,6 +144,7 @@ export const MUSE_DEFAULT_MODEL = "default";
 
 export const DEFAULT_MODEL_BY_PROVIDER: Partial<Record<ProviderDriverKind, string>> = {
   [CODEX_DRIVER_KIND]: DEFAULT_MODEL,
+  [CHATGPT_DRIVER_KIND]: "gpt-5.4",
   [CLAUDE_DRIVER_KIND]: "claude-opus-5-5",
   [CURSOR_DRIVER_KIND]: "auto",
   // Product slug meaning the current session model, never an ACP model id.
@@ -195,6 +197,7 @@ export const MODEL_SLUG_ALIASES_BY_PROVIDER: Partial<
 };
 
 export const PROVIDER_DISPLAY_NAMES: Partial<Record<ProviderDriverKind, string>> = {
+  [CHATGPT_DRIVER_KIND]: "ChatGPT",
   [ProviderDriverKind.make("antigravity")]: "Antigravity",
   [CODEX_DRIVER_KIND]: "Codex",
   [CLAUDE_DRIVER_KIND]: "Claude",

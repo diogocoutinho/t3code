@@ -14,7 +14,7 @@ import * as Exit from "effect/Exit";
 import * as Scope from "effect/Scope";
 import * as Schema from "effect/Schema";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
-import { makeCodexChatGptAuth } from "./CodexChatGptAuth.ts";
+import { makeChatGptPlanAuth } from "./ChatGptPlanAuth.ts";
 import * as Protocol from "./CodexManagedTokenProtocol.ts";
 
 const MAX_CONNECTIONS = 32;
@@ -103,10 +103,7 @@ const acquireListener = Effect.gen(function* () {
   const jobs = yield* FiberSet.make<void>();
   const runJob =
     yield* FiberSet.runtime(jobs)<
-      Exclude<
-        Effect.Services<ReturnType<typeof makeCodexChatGptAuth>>,
-        import("effect/Scope").Scope
-      >
+      Exclude<Effect.Services<ReturnType<typeof makeChatGptPlanAuth>>, import("effect/Scope").Scope>
     >();
   const connections = yield* FiberSet.make<void>();
   const runConnection = yield* FiberSet.runtime(connections)();
@@ -149,7 +146,7 @@ const acquireListener = Effect.gen(function* () {
         runJob(
           Effect.scoped(
             Effect.gen(function* () {
-              const auth = yield* makeCodexChatGptAuth({
+              const auth = yield* makeChatGptPlanAuth({
                 instanceId: request.instanceId,
                 expectedProfileKey: request.profileKey,
               });

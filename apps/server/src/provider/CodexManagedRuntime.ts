@@ -9,7 +9,7 @@ import * as CodexManagedTokenBroker from "./CodexManagedTokenBroker.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import { resolveSelfInvocation, selfInvocationArgs } from "@t3tools/shared/nodeRuntime";
 import * as CodexInstallation from "./CodexInstallation.ts";
-import { makeCodexChatGptAuth } from "./CodexChatGptAuth.ts";
+import { makeChatGptPlanAuth } from "./ChatGptPlanAuth.ts";
 import { COMMAND_TIMEOUT_MS } from "./CodexManagedTokenProtocol.ts";
 import { materializeCodexShadowHome } from "./Drivers/CodexHomeLayout.ts";
 
@@ -45,7 +45,7 @@ export const makeCodexManagedRuntime = Effect.fn("makeCodexManagedRuntime")(func
   const environmentIdentity = yield* ServerEnvironment.ServerEnvironmentIdentity;
   const environmentId = yield* environmentIdentity.getEnvironmentId;
   const invocation = yield* resolveSelfInvocation();
-  const auth = yield* makeCodexChatGptAuth({
+  const auth = yield* makeChatGptPlanAuth({
     instanceId: options.instanceId,
     defaultReturnUrl: new URL(
       "/welcome",
